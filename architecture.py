@@ -1,3 +1,4 @@
+import copy
 
 #This class encompasses the sender. 
 # DESC: Anything that is done at the sender is handled within this class
@@ -8,6 +9,12 @@ class Sender():
     #Init function for Sender
     # INPUT: A pre-trained autoencoder pair from offline learning. Note, autoencoder = (encoder, decoder) pair
     def __init__(self, autoencoder):
+        #Live model is used for actively encoding frames, and stores the last broadcast model
+        self.live_model = copy.deepcopy(autoencoder)
+        #Train model is the one that we are actively training. Periodicailly we set live_model = train_model with a broadcast
+        self.train_model = autoencoder
+        #The hidden state of our LSTM. Will carry over even as we switch active models. Used for the real-time frames
+        self.hidden = None
         pass
 
     # PUBLIC METHODS
