@@ -7,16 +7,22 @@ import copy
 # OUTPUT: This will output encoded frames, and periodically decoder models
 class Sender():
     #Init function for Sender
-    # INPUT: A pre-trained autoencoder pair from offline learning. Note, autoencoder = (encoder, decoder) pair
-    def __init__(self, autoencoder):
+    def __init__(self, autoencoder, reward_func):
         #Live model is used for actively encoding frames, and stores the last broadcast model
         self.live_model = copy.deepcopy(autoencoder)
         #Train model is the one that we are actively training. Periodicailly we set live_model = train_model with a broadcast
         self.train_model = autoencoder
         #The hidden state of our LSTM. Will carry over even as we switch active models. Used for the real-time frames
         self.hidden = None
-        #This is the current encoding size to be used. It can dynamically adapt
-        self.enc_size = 10
+        #As we train with random encoding sizes we will keep track of a map enc_size->loss
+        #This will measure the accuracy of each encoding size
+        #We will use use an epslion-greedy stratagey between exploring different encoding sizes
+        #And always using the best encoding size we see. Every itteration we update how it performed
+        #When a particular encoding size does bad we try other ones more frequently 
+        #For evaluation (not training) of the current frame we just use whatever encoding size has lowest loss
+        self.size_loss = []
+        #This is some reward function func(enc_size, loss) which we use to select the best encoding size
+        self.reward_func = reward_func
         pass
 
     # PUBLIC METHODS
@@ -27,7 +33,7 @@ class Sender():
     #
     # INPUT: Nothing. Trains on it's history of frames from evaluate calls. 
     # OUTPUT: Either returns "None" or a "Decoder" to be broadcast on the network. 
-    # INTERNAL: Will update self.enc_size with the new encoding size to be used
+    # INTERNAL: Updates the self.size_loss for encoding size used this iter. 
     def step(self):
         pass
     
@@ -38,6 +44,7 @@ class Sender():
     # 
     # INPUT: A single frame. Implicitly this function also takes it's history as an input. 
     # OUTPUT: This function will return the encoded frame to be broadcast to the sender
+    #         Note the encodign size used will be determined by self.size_loss and self.reward_func each call
     # INTERNAL: This will update "self.hidden" for the next call
     def evaluate(self, frame):
         pass
