@@ -7,7 +7,7 @@ import copy
 # OUTPUT: This will output encoded frames, and periodically decoder models
 class Sender():
     #Init function for Sender
-    def __init__(self, autoencoder, reward_func):
+    def __init__(self, autoencoder, reward_func, fallback=None):
         #Live model is used for actively encoding frames, and stores the last broadcast model
         self.live_model = copy.deepcopy(autoencoder)
         #Train model is the one that we are actively training. Periodicailly we set live_model = train_model with a broadcast
@@ -23,6 +23,9 @@ class Sender():
         self.size_loss = []
         #This is some reward function func(enc_size, loss) which we use to select the best encoding size
         self.reward_func = reward_func
+        #Fallback is some trusted algorythem for encoding that we use if the error becomes intolerable
+        #As it keeps training and ges better it will stop using the fallback
+        self.fallback = fallback
         pass
 
     # PUBLIC METHODS
@@ -32,9 +35,10 @@ class Sender():
     # This function performs a step and does an update
     #
     # INPUT: Nothing. Trains on it's history of frames from evaluate calls. 
+    #        It will also optionally take a tensorboard. It will print training related statistics to it
     # OUTPUT: Either returns "None" or a "Decoder" to be broadcast on the network. 
     # INTERNAL: Updates the self.size_loss for encoding size used this iter. 
-    def step(self):
+    def step(self, board=None):
         pass
     
     #Evaluate a single frame. 

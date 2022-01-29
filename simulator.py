@@ -21,14 +21,50 @@ class SingleSenderSimulator():
     #The critical path. Simply steps through the frames one by one with an appropriate delay to simulate real-time input
     #For each frame it takes it, has the sender encode it
     #For testing this will then evaluate the accuracy of the encoding and keep track of network traffic
+    #It's network traffic, and evaluation of the encoded videos sent will be tested here and plotted
     def video_thread():
         pass
 
+    #PRIVATE FUNCTIONS
+
+    #Start and setup Tensorboard, responsibility of the simulator to print statistics
+    def __start_tensorboard():
+        pass
+
     #Private function called by both train and video thread to keep track of broadcast data
+    #Plots the data on the tensorboard so we can monitor the data transmission
     def __record_network_traffic(num_bytes):
         pass
 
 
-class FederatedSimulator():
+# REAL NETWORK TESTS
+#This is for use later. What it will do is that several different actual users to test on a real network
+
+#Each client runs on a seperate machine
+class RealSimulatorClient():
     def __init__(self, senders):
         pass
+
+    def start(runtime):
+        pass
+
+    # Manages the training loop for the sender, runs continiously
+    # Any network updates it sends here we will keep track of
+    def train_thread():
+        pass
+
+    #Feeds in the frames at a fixed FPS rate and then sends the results onto the network to the server
+    def video_sender_thread():
+        pass
+
+    #Video reciever thread, recieves input here and decodes it
+    def video_reciever_thread():
+        pass
+
+#There will be one server. It will take input from each client and then broadcast it to each other client
+#When we incorperate federated learning this will also serve as the federated learning server
+class RealSimulatorServer():
+    def __init__(self, senders):
+        pass
+
+    #TODO
