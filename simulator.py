@@ -6,7 +6,15 @@
 # The sender thinks it is sending to a real network with real decoders, but we intercept and simply calculate its test performance here
 # In future tests, we use the same sender without modification, but instead we will have many and maintain the federated model in env
 class SingleSenderSimulator():
-    def __init__(self, sender):
+    def __init__(self, sender, board, server=None):
+        #Sender does all the heavy lifting on training, we are just an interface for sender and the real world and testing
+        self.sender = sender
+        #A tensorboard which we will plot statitsics about the accuracy and all that of our sender
+        self.board = board
+        #At the beginning server=None. That is to say, we won't actually broadcast. 
+        #We will just discard the messages once we are done without sending them anywhere, just look at them for testing evaluation
+        #Later on we will modify this to support a "server" where we will actually forward the broadcasts
+        self.server = server
         pass
     
     #Start the entire process, starts both train and video thread and then returns
@@ -27,42 +35,15 @@ class SingleSenderSimulator():
 
     #PRIVATE FUNCTIONS
 
-    #Start and setup Tensorboard, responsibility of the simulator to print statistics
-    def __start_tensorboard():
-        pass
-
     #Private function called by both train and video thread to keep track of broadcast data
     #Plots the data on the tensorboard so we can monitor the data transmission
     def __record_network_traffic(num_bytes):
         pass
 
 
-# REAL NETWORK TESTS
-#This is for use later. What it will do is that several different actual users to test on a real network
-
-#Each client runs on a seperate machine
-class RealSimulatorClient():
-    def __init__(self, senders):
-        pass
-
-    def start(runtime):
-        pass
-
-    # Manages the training loop for the sender, runs continiously
-    # Any network updates it sends here we will keep track of
-    def train_thread():
-        pass
-
-    #Feeds in the frames at a fixed FPS rate and then sends the results onto the network to the server
-    def video_sender_thread():
-        pass
-
-    #Video reciever thread, recieves input here and decodes it
-    def video_reciever_thread():
-        pass
-
 #There will be one server. It will take input from each client and then broadcast it to each other client
 #When we incorperate federated learning this will also serve as the federated learning server
+#Later on the "server" parameter of sender will be an IP address to wherever this is hosted
 class RealSimulatorServer():
     def __init__(self, senders):
         pass
