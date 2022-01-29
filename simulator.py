@@ -17,7 +17,9 @@ class SingleSenderSimulator():
         self.server = server
         pass
     
-    #Start the entire process, starts both train and video thread and then returns
+    #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
+    # When this returns it must have killed both the train and video thread
+    # Will return some final statistics such as the overall error rate, overall network traffic, overall accuracy for the entire video
     def start(runtime):
         pass
     
@@ -47,5 +49,3 @@ class SingleSenderSimulator():
 class RealSimulatorServer():
     def __init__(self, senders):
         pass
-
-    #TODO

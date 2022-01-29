@@ -20,7 +20,7 @@ class Sender():
         #And always using the best encoding size we see. Every itteration we update how it performed
         #When a particular encoding size does bad we try other ones more frequently 
         #For evaluation (not training) of the current frame we just use whatever encoding size has lowest loss
-        self.size_loss = []
+        self.size_loss = [0 for _ in range(autoencoder.num_enc_layers)]
         #This is some reward function func(enc_size, loss) which we use to select the best encoding size
         self.reward_func = reward_func
         #Fallback is some trusted algorythem for encoding that we use if the error becomes intolerable
