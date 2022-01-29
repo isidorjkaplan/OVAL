@@ -15,6 +15,8 @@ class Sender():
         self.train_model = autoencoder
         #The hidden state of our LSTM. Will carry over even as we switch active models. Used for the real-time frames
         self.hidden = None
+        #This is the current encoding size to be used. It can dynamically adapt
+        self.enc_size = 10
         pass
 
     # PUBLIC METHODS
@@ -25,6 +27,7 @@ class Sender():
     #
     # INPUT: Nothing. Trains on it's history of frames from evaluate calls. 
     # OUTPUT: Either returns "None" or a "Decoder" to be broadcast on the network. 
+    # INTERNAL: Will update self.enc_size with the new encoding size to be used
     def step(self):
         pass
     
@@ -35,6 +38,7 @@ class Sender():
     # 
     # INPUT: A single frame. Implicitly this function also takes it's history as an input. 
     # OUTPUT: This function will return the encoded frame to be broadcast to the sender
+    # INTERNAL: This will update "self.hidden" for the next call
     def evaluate(self, frame):
         pass
 
