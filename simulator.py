@@ -1,3 +1,8 @@
+import cv2
+import numpy
+import torch
+import time
+
 # This enviornment is used for the tests without federated learning. We are just monitoring one sender's ability to adapt
 # We will run this on many seperate videos and collect the average for test reporting in the paper
 # In this setup, we don't actually use a reciever. The sender is a black box which will take in frames we feed it 
@@ -41,6 +46,46 @@ class SingleSenderSimulator():
     #Plots the data on the tensorboard so we can monitor the data transmission
     def __record_network_traffic(num_bytes):
         pass
+
+#Simulates a file as being a live video stream returning rate frames per second
+class VideoSimulator():
+    #Opens the file and initilizes the video
+    def __init__(self, filepath, rate=30):
+        self.cap = cv2.VideoCapture(filepath)
+        self.frameCount = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.frameWidth = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.frameHeight = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        #Parameters for frame reading
+        self.num_frames_read = 0
+        self.last_frame_time = 0
+        self.ret = True
+        self.time_between_frames = 1/rate
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.next_frame()
+    
+    def next_frame(self):
+        #Do all the reading and processing of the frame
+        if self.num_frames_read >= self.frameCount or not self.ret:
+            return None
+
+        self.ret, frame = self.cap.read()
+        #If failed to read
+        if not self.ret:
+            return None
+        frame = torch.FloatTensor(frame)
+        #Sleep so that we ensure appropriate frame rate, only return at the proper time
+        sleep_time = self.time_between_frames - (time.time() - self.last_frame_time)
+        if sleep_time > 0:
+            print("Warning: read frame too slow")
+            time.sleep(sleep_time)
+        self.last_frame_time = time.time()
+        #Return value
+        return frame
+
 
 
 #There will be one server. It will take input from each client and then broadcast it to each other client
