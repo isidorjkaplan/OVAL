@@ -104,7 +104,7 @@ class Sender():
 
         self.iter+=1
         #FOR NOW ALWAYS UPDATE, CHANGE THIS LATER
-        if rel_err >= 0.05: #Should update in 5% difference
+        if rel_err >= 0.20: #Should update in 5% difference
             print("Broadcasting Model Update")
             #Send to the thread handling evaluation
             self.model_q.put(self.train_model.encoder.cpu().state_dict())
