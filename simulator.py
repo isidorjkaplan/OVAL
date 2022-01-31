@@ -67,9 +67,9 @@ class VideoSimulator():
     #Opens the file and initilizes the video
     def __init__(self, filepath, rate=15):
         cap = cv2.VideoCapture(filepath)
-        self.frameCount = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        self.frameWidth = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.frameHeight = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.frameCount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.frameWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.frameHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         #Parameters for frame reading
         self.num_frames_read = 0
         self.last_frame_time = time.time()
@@ -96,7 +96,7 @@ class VideoSimulator():
     
     def next_frame(self):
         #Do all the reading and processing of the frame
-        if self.num_frames_read >= self.frameCount or not self.ret:
+        if self.num_frames_read >= self.frameCount:
             return None
 
         frame = self.frames[self.num_frames_read]
