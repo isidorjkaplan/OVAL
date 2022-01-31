@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 # OUTPUT: This will output encoded frames, and periodically decoder models
 class Sender():
     #Init function for Sender
-    def __init__(self, autoencoder, reward_func, board, min_frames=10, max_buffer_size=1000, live_device='cuda', train_device='cuda', fallback=None):
+    def __init__(self, autoencoder, reward_func, board, min_frames=10, max_buffer_size=10, live_device='cuda', train_device='cuda', fallback=None):
         #Live model is used for actively encoding frames, and stores the last broadcast model
         self.live_model = autoencoder.clone()
         #As we train with random encoding sizes we will keep track of a map enc_size->loss
@@ -69,6 +69,7 @@ class Sender():
             frame = self.train_q.get()
             self.buffer.append(frame)
         while len(self.buffer) > self.max_buffer_size:
+            del self.buffer[0]
             self.buffer.pop(0)#Can probably do this more efficiently later
 
         if len(self.buffer) < self.min_frames:
@@ -77,34 +78,42 @@ class Sender():
 
         start = time.time()
             
-        data = torch.cat(self.buffer, dim=0).detach() #Construct the training data
+        data = torch.cat(self.buffer, dim=0).detach().to(self.train_device) #Construct the training data
 
+        self.train_model.to(self.train_device)
         loss_train = F.mse_loss(data, self.train_model.decoder(self.train_model.encoder(data))) #Compute the loss
-        self.board.put(("sender/loss_train (batch)", loss_train.item(), self.iter))
+        self.board.put(("sender/loss_train (batch)", loss_train.detach().cpu().item(), self.iter))
 
+        self.live_model.to(self.train_device)
         loss_live = F.mse_loss(data, self.live_model.decoder(self.live_model.encoder(data))) #Compute the loss
-        self.board.put(("sender/loss_live (batch)", loss_live.item(), self.iter))
+        self.board.put(("sender/loss_live (batch)", loss_live.detach().cpu().item(), self.iter))
 
         loss_train.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
 
-        rel_err = (loss_live/loss_train - 1).detach().item()
+        rel_err = (loss_live/loss_train - 1).detach().cpu().item()
         self.board.put(("sender/relative_error (batch)", rel_err, self.iter))
     
         self.board.put(("timing/train_iter (sec)", time.time() - start, self.iter))
+
+        del data
+        torch.cuda.empty_cache()
 
         #Evaluate how live model is doing
 
         self.iter+=1
         #FOR NOW ALWAYS UPDATE, CHANGE THIS LATER
-        if rel_err >= 0.05: #Should update in 5% difference
+        if rel_err >= 0.20: #Should update in 5% difference
             print("Broadcasting Model Update")
             #Send to the thread handling evaluation
-            self.model_q.put(self.train_model.encoder.state_dict())
+            self.model_q.put(self.train_model.encoder.cpu().state_dict())
             #Update for should_update evaluation
+            del self.live_model.encoder
+            del self.live_model.decoder
+            del self.live_model
             self.live_model = self.train_model.clone()  
-            return self.train_model.decoder.state_dict()
+            return self.train_model.decoder.cpu().state_dict()
 
         return None
         pass
@@ -127,6 +136,7 @@ class Sender():
             self.live_model.to(self.live_device)
         #Actually run the encoder on the frame
         enc_state = self.live_model.encoder(frame.to(self.live_device)).cpu()
+        torch.cuda.empty_cache()
 
         return enc_state
 
