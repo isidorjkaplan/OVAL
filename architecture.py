@@ -74,6 +74,8 @@ class Sender():
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
+        #FOR NOW ALWAYS UPDATE, CHANGE THIS LATER
+        return self.train_model.decoder.state_dict()
         pass
     
     #Evaluate a single frame. 

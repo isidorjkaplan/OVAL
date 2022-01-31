@@ -5,7 +5,7 @@ import time
 import torch.nn.functional as F
 import copy
 import numpy as np
-from multiprocessing import Process, Value
+from multiprocessing import Process, Value, Queue
 import cv2
 import matplotlib.pyplot as plt
 import ctypes
@@ -35,6 +35,7 @@ class SingleSenderSimulator():
         self.decoder = copy.deepcopy(sender.live_model.decoder)
         self.done = Value(ctypes.c_bool)
         self.done.value = False
+        self.model_q = Queue()
         pass
     
     #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
@@ -56,7 +57,9 @@ class SingleSenderSimulator():
     def train_thread(self):
         self.sender.init_train()
         while not self.done.value:
-            self.sender.step()
+            params = self.sender.step()
+            if params is not None:
+                self.model_q.put(params)
             pass
         print("Train Thread Terminated")
 
@@ -72,10 +75,13 @@ class SingleSenderSimulator():
             #Evaluate the error on our encoding to report for testing set
 
             #THIS IS TOO SLOW. Must do this in another thread
+            if not self.model_q.empty():
+                self.decoder.load_state_dict(self.model_q.get())
             dec_frame = self.decoder(encoded).detach()
             error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
-            print("loss_v=%g" % error)       
-            plt.imshow(dec_frame[0].permute(1, 2, 0))
+            #print("loss_v=%g" % error)       
+            #plt.imshow(dec_frame[0].permute(1, 2, 0))
+            #plt.show(block=False)
             #print("Recieved encoded frame with loss = " + str(error.item()))
         self.done.value = True
         print("Finished reading Video")
