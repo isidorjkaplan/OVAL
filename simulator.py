@@ -40,6 +40,7 @@ class SingleSenderSimulator():
         self.done = Value(ctypes.c_bool)
         self.done.value = False
         self.data_q = Queue()
+        self.model_q = Queue()
         self.valid_frame_q = Queue() #Pass real unencoded frames for validation
         pass
     
