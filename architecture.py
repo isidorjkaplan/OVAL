@@ -4,6 +4,8 @@ import time
 import torch
 import torch.nn.functional as F
 
+from torch.utils.tensorboard import SummaryWriter
+
 #This class encompasses the sender. 
 # DESC: Anything that is done at the sender is handled within this class
 # INPUT: This class will take in frames, one at a time, representing the live video
@@ -11,7 +13,7 @@ import torch.nn.functional as F
 # OUTPUT: This will output encoded frames, and periodically decoder models
 class Sender():
     #Init function for Sender
-    def __init__(self, autoencoder, reward_func, min_frames=10, max_buffer_size=100, fallback=None):
+    def __init__(self, autoencoder, reward_func, board, min_frames=10, max_buffer_size=100, fallback=None):
         #Live model is used for actively encoding frames, and stores the last broadcast model
         self.live_model = copy.deepcopy(autoencoder)
         #As we train with random encoding sizes we will keep track of a map enc_size->loss
@@ -31,12 +33,16 @@ class Sender():
         #How many frames can the largest our buffer be. If it is larger we start throwing out old frames
         self.max_buffer_size = max_buffer_size
 
+        self.board = board
+
         self.train_q = multiprocessing.Queue()
         pass
 
     # PUBLIC METHODS
 
     def init_train(self):
+        self.writer = SummaryWriter(self.board)
+        self.iter = 0
         #LOCAL VARIABLES
         self.buffer = []
         #The hidden state of our LSTM. Will carry over even as we switch active models. Used for the real-time frames
@@ -71,9 +77,11 @@ class Sender():
         out = self.train_model.decoder(self.train_model.encoder(data))
         loss = F.mse_loss(data, out) #Compute the loss
         print("loss_t=%g"% loss.item())
+        self.writer.add_scalar("sender loss", loss.item(), self.iter)
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
+        self.iter+=1
         #FOR NOW ALWAYS UPDATE, CHANGE THIS LATER
         return self.train_model.decoder.state_dict()
         pass

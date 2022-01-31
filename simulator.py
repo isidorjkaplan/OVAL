@@ -10,6 +10,8 @@ import cv2
 import matplotlib.pyplot as plt
 import ctypes
 
+from torch.utils.tensorboard import SummaryWriter
+
 
 # This enviornment is used for the tests without federated learning. We are just monitoring one sender's ability to adapt
 # We will run this on many seperate videos and collect the average for test reporting in the paper
@@ -26,6 +28,8 @@ class SingleSenderSimulator():
         self.video = video
         #A tensorboard which we will plot statitsics about the accuracy and all that of our sender
         self.board = board
+        self.writer = None
+        #self.writer = SummaryWriter(board)
         #At the beginning server=None. That is to say, we won't actually broadcast. 
         #We will just discard the messages once we are done without sending them anywhere, just look at them for testing evaluation
         #Later on we will modify this to support a "server" where we will actually forward the broadcasts
@@ -36,18 +40,25 @@ class SingleSenderSimulator():
         self.done = Value(ctypes.c_bool)
         self.done.value = False
         self.model_q = Queue()
+        self.data_q = Queue()
+        self.valid_frame_q = Queue() #Pass real unencoded frames for validation
         pass
     
     #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
     # When this returns it must have killed both the train and video thread
     # Will return some final statistics such as the overall error rate, overall network traffic, overall accuracy for the entire video
     def start(self):
-        p = Process(target=self.train_thread)
-        p.start() #Start training and then go to the live video feed
+        p_train = Process(target=self.train_thread)
+        p_train.start() #Start training and then go to the live video feed
+        p_recv = Process(target=self.recieve_thread)
+        p_recv.start()
         try:
             self.video_thread()
-            p.join() #Wait for training thread to kill itself safely
+            p_train.join() #Wait for training thread to kill itself safely
+            p_recv.join()
         except Exception as e:
+            p_train.kill()
+            p_recv.kill()
             print(e)
             
         pass #Return
@@ -71,22 +82,38 @@ class SingleSenderSimulator():
         for frame in self.video:
             if frame is None:
                 break
+            #Send the true frame for validation purposes
+            self.valid_frame_q.put(frame)
+            #Perform encoding and transmit it
             encoded = self.sender.evaluate(frame).detach()
+            self.data_q.put(encoded)
             #Evaluate the error on our encoding to report for testing set
-
-            #THIS IS TOO SLOW. Must do this in another thread
-            if not self.model_q.empty():
-                self.decoder.load_state_dict(self.model_q.get())
-            dec_frame = self.decoder(encoded).detach()
-            error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
-            #print("loss_v=%g" % error)       
-            #plt.imshow(dec_frame[0].permute(1, 2, 0))
-            #plt.show(block=False)
-            #print("Recieved encoded frame with loss = " + str(error.item()))
         self.done.value = True
         print("Finished reading Video")
             
+    def recieve_thread(self):
+        if self.writer == None:
+            self.writer = SummaryWriter(self.board)
 
+        frame = 0
+        while not self.done.value:
+            #THIS IS TOO SLOW. Must do this in another thread
+            if not self.model_q.empty():
+                self.decoder.load_state_dict(self.model_q.get())
+            #This is done here instead of send thread to avoid delaying critical path measurements
+            dec_frame = self.decoder(self.data_q.get()).detach()
+            error = F.mse_loss(self.valid_frame_q.get(), dec_frame).detach() #Temporary, switch later     
+            print("loss_v=%g" % error)
+            self.writer.add_scalar("reciever loss", error, frame)     
+            #if frame % 30 == 0:
+            #    dec_frame = dec_frame[0].permute(1, 2, 0)
+            #    cv2.imshow("Video", dec_frame.numpy())
+            frame+=1
+            #plt.imshow(dec_frame[0].permute(1, 2, 0))
+            #plt.show(block=False)
+            #print("Recieved encoded frame with loss = " + str(error.item()))
+        print("Recieve thread terminated")
+        pass
     #PRIVATE FUNCTIONS
 
     #Private function called by both train and video thread to keep track of broadcast data

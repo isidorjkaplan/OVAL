@@ -9,6 +9,8 @@ from collections import namedtuple
 import torch.nn as nn
 import torch.nn.functional as F
 
+from torch.utils.tensorboard import SummaryWriter
+
 #TEMPORRY, WILL REPLACE WITH RYANS AUTOENCODER MODEL LATER
 Autoencoder = namedtuple("Autoencoder", "encoder decoder")
     
@@ -50,8 +52,9 @@ def main_online():
     # Download the sample video
     video_sim = sim.VideoSimulator('./data/test.mp4')
     #[frame for frame in video_sim]
-    sender = arch.Sender(Autoencoder(Encoder(), Decoder()), linear_reward_func)
-    local_sim = sim.SingleSenderSimulator(sender, video_sim, None)
+    board = "runs/exp1"
+    sender = arch.Sender(Autoencoder(Encoder(), Decoder()), linear_reward_func, board)
+    local_sim = sim.SingleSenderSimulator(sender, video_sim, board)
     local_sim.start()
 
     pass
