@@ -5,7 +5,8 @@ import time
 import torch.nn.functional as F
 import copy
 import numpy as np
-from multiprocessing import Process, Value, Queue
+from multiprocessing import Process, Value
+from torch.multiprocessing import Queue
 import cv2
 import matplotlib.pyplot as plt
 import ctypes

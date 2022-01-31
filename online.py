@@ -8,7 +8,8 @@ import architecture as arch
 from collections import namedtuple
 import torch.nn as nn
 import torch.nn.functional as F
-from multiprocessing import Process, Value, Queue
+from multiprocessing import Process, Value
+from torch.multiprocessing import Queue
 
 from torch.utils.tensorboard import SummaryWriter
 
