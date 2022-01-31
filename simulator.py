@@ -88,14 +88,15 @@ class SingleSenderSimulator():
     #For testing this will then evaluate the accuracy of the encoding and keep track of network traffic
     #It's network traffic, and evaluation of the encoded videos sent will be tested here and plotted
     def video_thread(self):
+        start = time.time()
         for i,frame in enumerate(self.video):
             if frame is None:
                 break
-            start = time.time()
             #Perform encoding and transmit it
             encoded = self.sender.evaluate(frame).detach()
             self.data_q.put(encoded)
             self.board.put(("timing/send_fps (frames/sec)", 1/(time.time() - start), i))
+            start = time.time()
             #Evaluate the error on our encoding to report for testing set
         self.done.value = True
         print("Finished reading Video")
@@ -185,6 +186,7 @@ class VideoSimulator():
         #Sleep so that we ensure appropriate frame rate, only return at the proper time
         sleep_time = self.time_between_frames - (time.time() - self.last_frame_time)
         if sleep_time > 0:
+            #print("Sleeping for: %g" % sleep_time)
             time.sleep(sleep_time)
         #else:
         #    print("Warning: Was too slow by: %g", sleep_time)

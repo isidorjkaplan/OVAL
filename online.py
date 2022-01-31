@@ -26,6 +26,12 @@ class Autoencoder():
         ae.encoder.load_state_dict(self.encoder.state_dict())
         ae.decoder.load_state_dict(self.decoder.state_dict())
         return ae
+
+    def to(self, device):
+        self.encoder.to(device)
+        self.decoder.to(device)
+
+    #TODO load_state_dict
     
 class Encoder(nn.Module):
     def __init__(self):

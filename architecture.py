@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 # OUTPUT: This will output encoded frames, and periodically decoder models
 class Sender():
     #Init function for Sender
-    def __init__(self, autoencoder, reward_func, board, min_frames=10, max_buffer_size=1000, fallback=None):
+    def __init__(self, autoencoder, reward_func, board, min_frames=10, max_buffer_size=1000, live_device='cuda', train_device='cuda', fallback=None):
         #Live model is used for actively encoding frames, and stores the last broadcast model
         self.live_model = autoencoder.clone()
         #As we train with random encoding sizes we will keep track of a map enc_size->loss
@@ -34,6 +34,8 @@ class Sender():
         self.max_buffer_size = max_buffer_size
 
         self.board = board
+        self.live_device = live_device
+        self.train_device = train_device
 
         self.train_q = multiprocessing.Queue()
         self.model_q = multiprocessing.Queue()
@@ -63,11 +65,11 @@ class Sender():
     # INTERNAL: Updates the self.size_loss for encoding size used this iter. 
     def step(self, board=None):
         #Cant train on an empty buffer
-        if not self.train_q.empty():
+        while not self.train_q.empty():
             frame = self.train_q.get()
             self.buffer.append(frame)
-            while len(self.buffer) > self.max_buffer_size:
-                self.buffer.pop(0)#Can probably do this more efficiently later
+        while len(self.buffer) > self.max_buffer_size:
+            self.buffer.pop(0)#Can probably do this more efficiently later
 
         if len(self.buffer) < self.min_frames:
             time.sleep(0)#Yield the thread
@@ -119,10 +121,12 @@ class Sender():
     def evaluate(self, frame):
         #Save value onto our training buffer
         self.train_q.put(frame)
+        self.live_model.to(self.live_device)
         if not self.model_q.empty():
             self.live_model.encoder.load_state_dict(self.model_q.get())
+            self.live_model.to(self.live_device)
         #Actually run the encoder on the frame
-        enc_state = self.live_model.encoder(frame)
+        enc_state = self.live_model.encoder(frame.to(self.live_device)).cpu()
 
         return enc_state
 
