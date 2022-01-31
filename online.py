@@ -13,7 +13,16 @@ from multiprocessing import Process, Value, Queue
 from torch.utils.tensorboard import SummaryWriter
 
 #TEMPORRY, WILL REPLACE WITH RYANS AUTOENCODER MODEL LATER
-Autoencoder = namedtuple("Autoencoder", "encoder decoder")
+class Autoencoder():
+    def __init__(self):
+        self.encoder = Encoder()
+        self.decoder = Decoder()
+
+    def clone(self):
+        ae = Autoencoder()
+        ae.encoder.load_state_dict(self.encoder.state_dict())
+        ae.decoder.load_state_dict(self.decoder.state_dict())
+        return ae
     
 class Encoder(nn.Module):
     def __init__(self):
@@ -60,12 +69,12 @@ def print_thread(board, data_q):
 # It will then pass control to the simulator which will start all it's respective threads and begin running
 def main_online():
     # Download the sample video
-    video_sim = sim.VideoSimulator('./data/test.mp4', repeat=True)
+    video_sim = sim.VideoSimulator('./data/lwt_short.mp4', repeat=False)#, size=(340, 256))
     #[frame for frame in video_sim]
     data_q = Queue()
     p = Process(target=print_thread, args=("runs/exp1", data_q,))
     p.start()
-    sender = arch.Sender(Autoencoder(Encoder(), Decoder()), linear_reward_func, data_q)
+    sender = arch.Sender(Autoencoder(), linear_reward_func, data_q)
     local_sim = sim.SingleSenderSimulator(sender, video_sim, data_q)
     local_sim.start()
     p.kill()

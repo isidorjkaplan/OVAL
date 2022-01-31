@@ -35,10 +35,9 @@ class SingleSenderSimulator():
         self.server = server
 
         #Live decoder, we keep a copy here in the simulator since we dont know what is happening internal to sender
-        self.decoder = copy.deepcopy(sender.live_model.decoder)
+        self.decoder = sender.live_model.clone().decoder
         self.done = Value(ctypes.c_bool)
         self.done.value = False
-        self.model_q = Queue()
         self.data_q = Queue()
         self.valid_frame_q = Queue() #Pass real unencoded frames for validation
         pass
@@ -55,7 +54,12 @@ class SingleSenderSimulator():
             self.video_thread()
             p_train.join() #Wait for training thread to kill itself safely
             p_recv.join()
+        except KeyboardInterrupt as e:
+            print("Captured Keyboard Interrupt")
+            p_train.kill()
+            p_recv.kill()
         except Exception as e:
+            print("Captured Exception in Simulator")
             p_train.kill()
             p_recv.kill()
             print(e)
@@ -78,14 +82,16 @@ class SingleSenderSimulator():
     #For testing this will then evaluate the accuracy of the encoding and keep track of network traffic
     #It's network traffic, and evaluation of the encoded videos sent will be tested here and plotted
     def video_thread(self):
-        for frame in self.video:
+        for i,frame in enumerate(self.video):
             if frame is None:
                 break
+            start = time.time()
             #Send the true frame for validation purposes
             self.valid_frame_q.put(frame)
             #Perform encoding and transmit it
             encoded = self.sender.evaluate(frame).detach()
             self.data_q.put(encoded)
+            self.board.put(("timing/send_fps (frames/sec)", 1/(time.time() - start), i))
             #Evaluate the error on our encoding to report for testing set
         self.done.value = True
         print("Finished reading Video")
@@ -100,8 +106,8 @@ class SingleSenderSimulator():
             #This is done here instead of send thread to avoid delaying critical path measurements
             dec_frame = self.decoder(self.data_q.get()).detach()
             error = F.mse_loss(self.valid_frame_q.get(), dec_frame).detach() #Temporary, switch later     
-            print("loss_v=%g" % error)
-            self.board.put(("reciever loss", error, frame))  
+            #print("loss_v=%g" % error)
+            self.board.put(("reciever/realtime frame loss", error, frame))  
             #if frame % 30 == 0:
             #    dec_frame = dec_frame[0].permute(1, 2, 0)
             #    cv2.imshow("Video", dec_frame.numpy())
@@ -121,11 +127,12 @@ class SingleSenderSimulator():
 #Simulates a file as being a live video stream returning rate frames per second
 class VideoSimulator():
     #Opens the file and initilizes the video
-    def __init__(self, filepath, rate=15, repeat=False):
+    def __init__(self, filepath, rate=30, size=None, repeat=False):
         cap = cv2.VideoCapture(filepath)
         self.frameCount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.frameWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.frameHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        print("Loading Video=%s with frames=%d and size=(%d,%d)" % (filepath, self.frameCount, self.frameWidth, self.frameHeight))
         #Parameters for frame reading
         self.num_frames_read = 0
         self.last_frame_time = time.time()
@@ -137,11 +144,14 @@ class VideoSimulator():
         ret = True
         while (fc < self.frameCount  and ret):
             ret, buf[fc] = cap.read()
+            if size is not None: #Optionally resize to specific size
+                buf[fc] = cv2.resize(buf[fc], size, interpolation = cv2.INTER_LINEAR)
             fc += 1
         cap.release()
 
-        self.frames = torch.FloatTensor(buf)/255
-        self.frames = self.frames.permute(0, 3, 1, 2)#Make channel major
+        self.buffer = buf #save buffer
+        #self.frames = torch.FloatTensor(buf)/255
+        #self.frames = self.frames.permute(0, 3, 1, 2)#Make channel major
 
 
 
@@ -156,7 +166,9 @@ class VideoSimulator():
         if self.num_frames_read >= self.frameCount and not self.repeat:
             return None
 
-        frame = self.frames[self.num_frames_read % self.frameCount]
+        frame = torch.FloatTensor(self.buffer[self.num_frames_read % self.frameCount]).permute(2, 1, 0)/255.0
+
+
         self.num_frames_read+=1
         frame = frame.view(1, 3, self.frameWidth, self.frameHeight)
         #Sleep so that we ensure appropriate frame rate, only return at the proper time

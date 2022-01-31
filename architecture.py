@@ -15,7 +15,7 @@ class Sender():
     #Init function for Sender
     def __init__(self, autoencoder, reward_func, board, min_frames=10, max_buffer_size=100, fallback=None):
         #Live model is used for actively encoding frames, and stores the last broadcast model
-        self.live_model = copy.deepcopy(autoencoder)
+        self.live_model = autoencoder.clone()
         #As we train with random encoding sizes we will keep track of a map enc_size->loss
         #This will measure the accuracy of each encoding size
         #We will use use an epslion-greedy stratagey between exploring different encoding sizes
@@ -36,6 +36,7 @@ class Sender():
         self.board = board
 
         self.train_q = multiprocessing.Queue()
+        self.model_q = multiprocessing.Queue()
         pass
 
     # PUBLIC METHODS
@@ -47,9 +48,9 @@ class Sender():
         #The hidden state of our LSTM. Will carry over even as we switch active models. Used for the real-time frames
         self.hidden = None
         #Train model is the one that we are actively training. Periodicailly we set live_model = train_model with a broadcast
-        self.train_model = copy.deepcopy(self.live_model)
+        self.train_model = self.live_model.clone()
         params = list(self.train_model.encoder.parameters()) +  list(self.train_model.decoder.parameters())
-        self.optimizer = torch.optim.Adam(params, lr=0.0001)
+        self.optimizer = torch.optim.Adam(params, lr=0.01)
 
     
     #Run one iteration of training on its local buffer to train AE
@@ -71,18 +72,39 @@ class Sender():
         if len(self.buffer) < self.min_frames:
             time.sleep(0)#Yield the thread
             return None
+
+        start = time.time()
             
-        data = torch.cat(self.buffer, dim=0) #Construct the training data
-        out = self.train_model.decoder(self.train_model.encoder(data))
-        loss = F.mse_loss(data, out) #Compute the loss
-        print("loss_t=%g"% loss.item())
-        self.board.put(("sender loss", loss.item(), self.iter))
-        loss.backward()
+        data = torch.cat(self.buffer, dim=0).detach() #Construct the training data
+
+        loss_train = F.mse_loss(data, self.train_model.decoder(self.train_model.encoder(data))) #Compute the loss
+        self.board.put(("sender/loss_train (batch)", loss_train.item(), self.iter))
+
+        loss_live = F.mse_loss(data, self.live_model.decoder(self.live_model.encoder(data))) #Compute the loss
+        self.board.put(("sender/loss_live (batch)", loss_live.item(), self.iter))
+
+        loss_train.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
+
+        rel_err = (loss_live/loss_train - 1).detach().item()
+        self.board.put(("sender/relative_error (batch)", rel_err, self.iter))
+    
+        self.board.put(("timing/train_iter (sec)", time.time() - start, self.iter))
+
+        #Evaluate how live model is doing
+
         self.iter+=1
         #FOR NOW ALWAYS UPDATE, CHANGE THIS LATER
-        return self.train_model.decoder.state_dict()
+        if rel_err >= 0.05: #Should update in 5% difference
+            print("Broadcasting Model Update")
+            #Send to the thread handling evaluation
+            self.model_q.put(self.train_model.encoder.state_dict())
+            #Update for should_update evaluation
+            self.live_model = self.train_model.clone()  
+            return self.train_model.decoder.state_dict()
+
+        return None
         pass
     
     #Evaluate a single frame. 
@@ -97,8 +119,12 @@ class Sender():
     def evaluate(self, frame):
         #Save value onto our training buffer
         self.train_q.put(frame)
+        if not self.model_q.empty():
+            self.live_model.encoder.load_state_dict(self.model_q.get())
         #Actually run the encoder on the frame
-        return self.live_model.encoder(frame)
+        enc_state = self.live_model.encoder(frame)
+
+        return enc_state
 
 
 
