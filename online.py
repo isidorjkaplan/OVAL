@@ -8,6 +8,7 @@ import architecture as arch
 from collections import namedtuple
 import torch.nn as nn
 import torch.nn.functional as F
+from multiprocessing import Process, Value, Queue
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -44,6 +45,15 @@ class Decoder(nn.Module):
 def linear_reward_func(enc_size, loss):
     return None #Do not use this yet
 
+
+
+def print_thread(board, data_q):
+    writer = SummaryWriter(board)
+    while True:
+        label, y, x = data_q.get()
+        writer.add_scalar(label, y, x)
+        
+
 #This function will parse terminal inputs from the user and then perform online training
 # It will load the model from the file specified by the user inputs
 # It will setup the model as well as the simulator settings and tensorboard and all that
@@ -52,10 +62,13 @@ def main_online():
     # Download the sample video
     video_sim = sim.VideoSimulator('./data/test.mp4')
     #[frame for frame in video_sim]
-    board = "runs/exp1"
-    sender = arch.Sender(Autoencoder(Encoder(), Decoder()), linear_reward_func, board)
-    local_sim = sim.SingleSenderSimulator(sender, video_sim, board)
+    data_q = Queue()
+    p = Process(target=print_thread, args=("runs/exp1", data_q,))
+    p.start()
+    sender = arch.Sender(Autoencoder(Encoder(), Decoder()), linear_reward_func, data_q)
+    local_sim = sim.SingleSenderSimulator(sender, video_sim, data_q)
     local_sim.start()
+    p.kill()
 
     pass
 

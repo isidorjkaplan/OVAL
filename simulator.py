@@ -28,7 +28,6 @@ class SingleSenderSimulator():
         self.video = video
         #A tensorboard which we will plot statitsics about the accuracy and all that of our sender
         self.board = board
-        self.writer = None
         #self.writer = SummaryWriter(board)
         #At the beginning server=None. That is to say, we won't actually broadcast. 
         #We will just discard the messages once we are done without sending them anywhere, just look at them for testing evaluation
@@ -92,19 +91,17 @@ class SingleSenderSimulator():
         print("Finished reading Video")
             
     def recieve_thread(self):
-        if self.writer == None:
-            self.writer = SummaryWriter(self.board)
-
         frame = 0
         while not self.done.value:
             #THIS IS TOO SLOW. Must do this in another thread
             if not self.model_q.empty():
+                print("Reciever got new model!")
                 self.decoder.load_state_dict(self.model_q.get())
             #This is done here instead of send thread to avoid delaying critical path measurements
             dec_frame = self.decoder(self.data_q.get()).detach()
             error = F.mse_loss(self.valid_frame_q.get(), dec_frame).detach() #Temporary, switch later     
             print("loss_v=%g" % error)
-            self.writer.add_scalar("reciever loss", error, frame)     
+            self.board.put(("reciever loss", error, frame))  
             #if frame % 30 == 0:
             #    dec_frame = dec_frame[0].permute(1, 2, 0)
             #    cv2.imshow("Video", dec_frame.numpy())

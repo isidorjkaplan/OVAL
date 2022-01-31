@@ -41,7 +41,6 @@ class Sender():
     # PUBLIC METHODS
 
     def init_train(self):
-        self.writer = SummaryWriter(self.board)
         self.iter = 0
         #LOCAL VARIABLES
         self.buffer = []
@@ -77,7 +76,7 @@ class Sender():
         out = self.train_model.decoder(self.train_model.encoder(data))
         loss = F.mse_loss(data, out) #Compute the loss
         print("loss_t=%g"% loss.item())
-        self.writer.add_scalar("sender loss", loss.item(), self.iter)
+        self.board.put(("sender loss", loss.item(), self.iter))
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
