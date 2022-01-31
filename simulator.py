@@ -5,6 +5,11 @@ import time
 import torch.nn.functional as F
 import copy
 import numpy as np
+from multiprocessing import Process, Value
+import cv2
+import matplotlib.pyplot as plt
+import ctypes
+
 
 # This enviornment is used for the tests without federated learning. We are just monitoring one sender's ability to adapt
 # We will run this on many seperate videos and collect the average for test reporting in the paper
@@ -28,19 +33,32 @@ class SingleSenderSimulator():
 
         #Live decoder, we keep a copy here in the simulator since we dont know what is happening internal to sender
         self.decoder = copy.deepcopy(sender.live_model.decoder)
+        self.done = Value(ctypes.c_bool)
+        self.done.value = False
         pass
     
     #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
     # When this returns it must have killed both the train and video thread
     # Will return some final statistics such as the overall error rate, overall network traffic, overall accuracy for the entire video
     def start(self):
-        self.video_thread()
-        pass
+        p = Process(target=self.train_thread)
+        p.start() #Start training and then go to the live video feed
+        try:
+            self.video_thread()
+            p.join() #Wait for training thread to kill itself safely
+        except Exception as e:
+            print(e)
+            
+        pass #Return
     
     # Manages the training loop for the sender, runs continiously
     # Any network updates it sends here we will keep track of
     def train_thread(self):
-        pass
+        self.sender.init_train()
+        while not self.done.value:
+            self.sender.step()
+            pass
+        print("Train Thread Terminated")
 
     #The critical path. Simply steps through the frames one by one with an appropriate delay to simulate real-time input
     #For each frame it takes it, has the sender encode it
@@ -48,11 +66,19 @@ class SingleSenderSimulator():
     #It's network traffic, and evaluation of the encoded videos sent will be tested here and plotted
     def video_thread(self):
         for frame in self.video:
-            encoded = self.sender.evaluate(frame)
+            if frame is None:
+                break
+            encoded = self.sender.evaluate(frame).detach()
             #Evaluate the error on our encoding to report for testing set
-            dec_frame = self.decoder(encoded)
-            error = F.mse_loss(frame, dec_frame) #Temporary, switch later
-            print("Recieved encoded frame with loss = " + str(error))
+
+            #THIS IS TOO SLOW. Must do this in another thread
+            dec_frame = self.decoder(encoded).detach()
+            error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
+            print("loss_v=%g" % error)       
+            plt.imshow(dec_frame[0].permute(1, 2, 0))
+            #print("Recieved encoded frame with loss = " + str(error.item()))
+        self.done.value = True
+        print("Finished reading Video")
             
 
     #PRIVATE FUNCTIONS
@@ -106,8 +132,8 @@ class VideoSimulator():
         sleep_time = self.time_between_frames - (time.time() - self.last_frame_time)
         if sleep_time > 0:
             time.sleep(sleep_time)
-        else:
-            print("Warning: Was too slow by: %g", sleep_time)
+        #else:
+        #    print("Warning: Was too slow by: %g", sleep_time)
         self.last_frame_time = time.time()
         #Return value
         return frame

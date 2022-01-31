@@ -1,4 +1,8 @@
 import copy
+import multiprocessing
+import time
+import torch
+import torch.nn.functional as F
 
 #This class encompasses the sender. 
 # DESC: Anything that is done at the sender is handled within this class
@@ -10,8 +14,6 @@ class Sender():
     def __init__(self, autoencoder, reward_func, min_frames=10, max_buffer_size=100, fallback=None):
         #Live model is used for actively encoding frames, and stores the last broadcast model
         self.live_model = copy.deepcopy(autoencoder)
-        #Train model is the one that we are actively training. Periodicailly we set live_model = train_model with a broadcast
-        self.train_model = autoencoder
         #As we train with random encoding sizes we will keep track of a map enc_size->loss
         #This will measure the accuracy of each encoding size
         #We will use use an epslion-greedy stratagey between exploring different encoding sizes
@@ -29,14 +31,21 @@ class Sender():
         #How many frames can the largest our buffer be. If it is larger we start throwing out old frames
         self.max_buffer_size = max_buffer_size
 
+        self.train_q = multiprocessing.Queue()
+        pass
+
+    # PUBLIC METHODS
+
+    def init_train(self):
         #LOCAL VARIABLES
         self.buffer = []
         #The hidden state of our LSTM. Will carry over even as we switch active models. Used for the real-time frames
         self.hidden = None
+        #Train model is the one that we are actively training. Periodicailly we set live_model = train_model with a broadcast
+        self.train_model = copy.deepcopy(self.live_model)
+        params = list(self.train_model.encoder.parameters()) +  list(self.train_model.decoder.parameters())
+        self.optimizer = torch.optim.Adam(params, lr=0.0001)
 
-        pass
-
-    # PUBLIC METHODS
     
     #Run one iteration of training on its local buffer to train AE
     # Does not modify the hidden state of the LSTM used for live decoding
@@ -48,10 +57,23 @@ class Sender():
     # INTERNAL: Updates the self.size_loss for encoding size used this iter. 
     def step(self, board=None):
         #Cant train on an empty buffer
-        if len(self.buffer) < self.min_frames:
-            return None
+        if not self.train_q.empty():
+            frame = self.train_q.get()
+            self.buffer.append(frame)
+            while len(self.buffer) > self.max_buffer_size:
+                self.buffer.pop(0)#Can probably do this more efficiently later
 
-        #TODO
+        if len(self.buffer) < self.min_frames:
+            time.sleep(0)#Yield the thread
+            return None
+            
+        data = torch.cat(self.buffer, dim=0) #Construct the training data
+        out = self.train_model.decoder(self.train_model.encoder(data))
+        loss = F.mse_loss(data, out) #Compute the loss
+        print("loss_t=%g"% loss.item())
+        loss.backward()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
         pass
     
     #Evaluate a single frame. 
@@ -65,9 +87,7 @@ class Sender():
     # INTERNAL: This will update "self.hidden" for the next call
     def evaluate(self, frame):
         #Save value onto our training buffer
-        self.buffer.append(frame)
-        while len(self.buffer) > self.max_buffer_size:
-            self.buffer.pop(0)#Can probably do this more efficiently later
+        self.train_q.put(frame)
         #Actually run the encoder on the frame
         return self.live_model.encoder(frame)
 
