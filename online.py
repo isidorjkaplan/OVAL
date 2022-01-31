@@ -60,7 +60,7 @@ def print_thread(board, data_q):
 # It will then pass control to the simulator which will start all it's respective threads and begin running
 def main_online():
     # Download the sample video
-    video_sim = sim.VideoSimulator('./data/test.mp4')
+    video_sim = sim.VideoSimulator('./data/test.mp4', repeat=True)
     #[frame for frame in video_sim]
     data_q = Queue()
     p = Process(target=print_thread, args=("runs/exp1", data_q,))

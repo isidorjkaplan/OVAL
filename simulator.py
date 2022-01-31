@@ -121,7 +121,7 @@ class SingleSenderSimulator():
 #Simulates a file as being a live video stream returning rate frames per second
 class VideoSimulator():
     #Opens the file and initilizes the video
-    def __init__(self, filepath, rate=15):
+    def __init__(self, filepath, rate=15, repeat=False):
         cap = cv2.VideoCapture(filepath)
         self.frameCount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.frameWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -130,6 +130,7 @@ class VideoSimulator():
         self.num_frames_read = 0
         self.last_frame_time = time.time()
         self.time_between_frames = 1.0/rate
+        self.repeat = repeat
 
         buf = np.empty((self.frameCount, self.frameHeight, self.frameWidth, 3), np.dtype('uint8'))
         fc = 0
@@ -152,10 +153,10 @@ class VideoSimulator():
     
     def next_frame(self):
         #Do all the reading and processing of the frame
-        if self.num_frames_read >= self.frameCount:
+        if self.num_frames_read >= self.frameCount and not self.repeat:
             return None
 
-        frame = self.frames[self.num_frames_read]
+        frame = self.frames[self.num_frames_read % self.frameCount]
         self.num_frames_read+=1
         frame = frame.view(1, 3, self.frameWidth, self.frameHeight)
         #Sleep so that we ensure appropriate frame rate, only return at the proper time
