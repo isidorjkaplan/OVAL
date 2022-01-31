@@ -22,11 +22,9 @@ from torch.utils.tensorboard import SummaryWriter
 # The sender thinks it is sending to a real network with real decoders, but we intercept and simply calculate its test performance here
 # In future tests, we use the same sender without modification, but instead we will have many and maintain the federated model in env
 class SingleSenderSimulator():
-    def __init__(self, sender, video, board, server=None):
+    def __init__(self, sender, board, server=None):
         #Sender does all the heavy lifting on training, we are just an interface for sender and the real world and testing
         self.sender = sender
-        #Video object is an itterator which returns pytorch frames as we call them
-        self.video = video
         #A tensorboard which we will plot statitsics about the accuracy and all that of our sender
         self.board = board
         #self.writer = SummaryWriter(board)
@@ -46,13 +44,14 @@ class SingleSenderSimulator():
     #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
     # When this returns it must have killed both the train and video thread
     # Will return some final statistics such as the overall error rate, overall network traffic, overall accuracy for the entire video
-    def start(self):
+    def start(self, video):
         p_train = Process(target=self.train_thread)
         p_train.start() #Start training and then go to the live video feed
+
         p_recv = Process(target=self.recieve_thread)
         p_recv.start()
         try:
-            self.video_thread()
+            self.video_thread(video)
             p_train.join() #Wait for training thread to kill itself safely
             p_recv.join()
         except KeyboardInterrupt as e:
@@ -87,14 +86,14 @@ class SingleSenderSimulator():
     #For each frame it takes it, has the sender encode it
     #For testing this will then evaluate the accuracy of the encoding and keep track of network traffic
     #It's network traffic, and evaluation of the encoded videos sent will be tested here and plotted
-    def video_thread(self):
+    def video_thread(self, video):
         start = time.time()
-        for i,frame in enumerate(self.video):
+        for i,frame in enumerate(video):
             if frame is None:
                 break
             #Perform encoding and transmit it
             encoded = self.sender.evaluate(frame).detach()
-            self.data_q.put(encoded)
+            self.data_q.put((encoded, frame))
             self.board.put(("timing/send_fps (frames/sec)", 1/(time.time() - start), i))
             start = time.time()
             #Evaluate the error on our encoding to report for testing set
@@ -109,9 +108,10 @@ class SingleSenderSimulator():
                 print("Reciever got new model!")
                 self.decoder.load_state_dict(self.model_q.get())
             #This is done here instead of send thread to avoid delaying critical path measurements
-            dec_frame = self.decoder(self.data_q.get()).detach()
+            encoded, frame = self.data_q.get()
+            dec_frame = self.decoder(encoded).detach()
 
-            frame = self.video.get_frame(frame_num)
+            #frame = self.video.get_frame(frame_num)
             error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
             #print("loss_v=%g" % error)
             self.board.put(("reciever/realtime frame loss", error, frame_num))  
@@ -160,8 +160,6 @@ class VideoSimulator():
         self.buffer = buf #save buffer
         #self.frames = torch.FloatTensor(buf)/255
         #self.frames = self.frames.permute(0, 3, 1, 2)#Make channel major
-
-
 
     def __iter__(self):
         return self

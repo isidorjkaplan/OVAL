@@ -97,20 +97,18 @@ class Sender():
     
         self.board.put(("timing/train_iter (sec)", time.time() - start, self.iter))
 
-        del data
+        #del data
         torch.cuda.empty_cache()
 
         #Evaluate how live model is doing
 
         self.iter+=1
         #FOR NOW ALWAYS UPDATE, CHANGE THIS LATER
-        if rel_err >= 0.20: #Should update in 5% difference
+        if rel_err >= 0.05: #Should update in 5% difference
             print("Broadcasting Model Update")
             #Send to the thread handling evaluation
             self.model_q.put(self.train_model.encoder.cpu().state_dict())
             #Update for should_update evaluation
-            del self.live_model.encoder
-            del self.live_model.decoder
             del self.live_model
             self.live_model = self.train_model.clone()  
             return self.train_model.decoder.cpu().state_dict()

@@ -77,17 +77,18 @@ def print_thread(board, data_q):
 # It will setup the model as well as the simulator settings and tensorboard and all that
 # It will then pass control to the simulator which will start all it's respective threads and begin running
 def main_online():
-    # Download the sample video
-    video_sim = sim.VideoSimulator('./data/lwt_short.mp4', repeat=False)#, size=(340, 256))
-    #[frame for frame in video_sim]
     data_q = Queue()
     board = "runs/exp1"
-    shutil.rmtree(board)
-    p = Process(target=print_thread, args=("runs/exp1", data_q,))
+    p = Process(target=print_thread, args=(board, data_q,))
     p.start()
+    # Download the sample video
+    
+    shutil.rmtree(board)
     sender = arch.Sender(Autoencoder(), linear_reward_func, data_q)
-    local_sim = sim.SingleSenderSimulator(sender, video_sim, data_q)
-    local_sim.start()
+
+    video_sim = sim.VideoSimulator('./data/lwt_short.mp4', repeat=False)#, size=(340, 256))
+    local_sim = sim.SingleSenderSimulator(sender, data_q)
+    local_sim.start(video_sim)
     p.kill()
     p.join()
 
