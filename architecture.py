@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 # OUTPUT: This will output encoded frames, and periodically decoder models
 class Sender():
     #Init function for Sender
-    def __init__(self, autoencoder, reward_func, board, min_frames=10, max_buffer_size=100, fallback=None):
+    def __init__(self, autoencoder, reward_func, board, min_frames=10, max_buffer_size=1000, fallback=None):
         #Live model is used for actively encoding frames, and stores the last broadcast model
         self.live_model = autoencoder.clone()
         #As we train with random encoding sizes we will keep track of a map enc_size->loss

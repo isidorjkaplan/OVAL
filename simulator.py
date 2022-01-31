@@ -41,7 +41,6 @@ class SingleSenderSimulator():
         self.done.value = False
         self.data_q = Queue()
         self.model_q = Queue()
-        self.valid_frame_q = Queue() #Pass real unencoded frames for validation
         pass
     
     #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
@@ -58,13 +57,18 @@ class SingleSenderSimulator():
             p_recv.join()
         except KeyboardInterrupt as e:
             print("Captured Keyboard Interrupt")
-            p_train.kill()
-            p_recv.kill()
-        except Exception as e:
-            print("Captured Exception in Simulator")
-            p_train.kill()
-            p_recv.kill()
             print(e)
+            p_train.kill()
+            p_recv.kill()
+            p_train.join()
+            p_recv.join()
+        except Exception as e:
+            print(e)
+            p_train.kill()
+            p_recv.kill()
+            p_train.join()
+            p_recv.join()
+
             
         pass #Return
     
@@ -88,8 +92,6 @@ class SingleSenderSimulator():
             if frame is None:
                 break
             start = time.time()
-            #Send the true frame for validation purposes
-            self.valid_frame_q.put(frame)
             #Perform encoding and transmit it
             encoded = self.sender.evaluate(frame).detach()
             self.data_q.put(encoded)
@@ -99,7 +101,7 @@ class SingleSenderSimulator():
         print("Finished reading Video")
             
     def recieve_thread(self):
-        frame = 0
+        frame_num = 0
         while not self.done.value:
             #THIS IS TOO SLOW. Must do this in another thread
             if not self.model_q.empty():
@@ -107,13 +109,16 @@ class SingleSenderSimulator():
                 self.decoder.load_state_dict(self.model_q.get())
             #This is done here instead of send thread to avoid delaying critical path measurements
             dec_frame = self.decoder(self.data_q.get()).detach()
-            error = F.mse_loss(self.valid_frame_q.get(), dec_frame).detach() #Temporary, switch later     
+
+            frame = self.video.get_frame(frame_num)
+            error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
             #print("loss_v=%g" % error)
-            self.board.put(("reciever/realtime frame loss", error, frame))  
-            #if frame % 30 == 0:
-            #    dec_frame = dec_frame[0].permute(1, 2, 0)
-            #    cv2.imshow("Video", dec_frame.numpy())
-            frame+=1
+            self.board.put(("reciever/realtime frame loss", error, frame_num))  
+            if frame_num % 30 == 0:
+                cv2.imshow("Decoded", dec_frame[0].permute(1, 2, 0).numpy())
+                cv2.imshow("Real", frame[0].permute(1, 2, 0).numpy())
+                cv2.waitKey(1)
+            frame_num+=1
             #plt.imshow(dec_frame[0].permute(1, 2, 0))
             #plt.show(block=False)
             #print("Recieved encoded frame with loss = " + str(error.item()))
@@ -162,17 +167,21 @@ class VideoSimulator():
 
     def __next__(self):
         return self.next_frame()
+
+    def get_frame(self, i):
+        assert self.repeat or i < self.frameCount
+        frame = torch.FloatTensor(self.buffer[i % self.frameCount]).permute(2, 1, 0)/255.0
+        frame = frame.view(1, 3, self.frameWidth, self.frameHeight)
+        return frame
+
     
     def next_frame(self):
         #Do all the reading and processing of the frame
         if self.num_frames_read >= self.frameCount and not self.repeat:
             return None
 
-        frame = torch.FloatTensor(self.buffer[self.num_frames_read % self.frameCount]).permute(2, 1, 0)/255.0
-
-
+        frame = self.get_frame(self.num_frames_read)
         self.num_frames_read+=1
-        frame = frame.view(1, 3, self.frameWidth, self.frameHeight)
         #Sleep so that we ensure appropriate frame rate, only return at the proper time
         sleep_time = self.time_between_frames - (time.time() - self.last_frame_time)
         if sleep_time > 0:

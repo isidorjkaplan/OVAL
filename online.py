@@ -10,6 +10,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from multiprocessing import Process, Value
 from torch.multiprocessing import Queue
+import shutil
+import os
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -73,12 +75,15 @@ def main_online():
     video_sim = sim.VideoSimulator('./data/lwt_short.mp4', repeat=False)#, size=(340, 256))
     #[frame for frame in video_sim]
     data_q = Queue()
+    board = "runs/exp1"
+    shutil.rmtree(board)
     p = Process(target=print_thread, args=("runs/exp1", data_q,))
     p.start()
     sender = arch.Sender(Autoencoder(), linear_reward_func, data_q)
     local_sim = sim.SingleSenderSimulator(sender, video_sim, data_q)
     local_sim.start()
     p.kill()
+    p.join()
 
     pass
 
