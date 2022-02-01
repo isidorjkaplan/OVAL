@@ -116,18 +116,22 @@ class SingleSenderSimulator():
             out = FFmpegWriter(out_file)
         frame_num = 0
         while not self.done.value:
+            num_bytes = 0
             #THIS IS TOO SLOW. Must do this in another thread
             if not self.model_q.empty():
                 print("Reciever got new model!")
+                num_bytes += sum(p.numel() for p in self.decoder.parameters())
                 self.decoder.load_state_dict(self.model_q.get())
             #This is done here instead of send thread to avoid delaying critical path measurements
             encoded, frame = self.data_q.get()
+            num_bytes += encoded.numel()
             dec_frame = self.decoder(encoded).detach()
 
             #frame = self.video.get_frame(frame_num)
             error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
             #print("loss_v=%g" % error)
             self.board.put(("reciever/realtime frame loss", error, frame_num)) 
+            self.board.put(("reciever/network_traffic", num_bytes, frame_num))
             #Live display of video 
             dec_np_frame = dec_frame[0].permute(2, 1, 0).numpy()
             if out_file is not None:
