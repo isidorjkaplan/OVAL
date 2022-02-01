@@ -109,6 +109,7 @@ class SingleSenderSimulator():
             start = time.time()
             #Evaluate the error on our encoding to report for testing set
         self.done.value = True
+        self.data_q.put(None) #Signify it is done
         print("Finished reading Video")
             
     def recieve_thread(self, out_file):
@@ -123,7 +124,12 @@ class SingleSenderSimulator():
                 num_bytes += sum(p.numel() for p in self.decoder.parameters())
                 self.decoder.load_state_dict(self.model_q.get())
             #This is done here instead of send thread to avoid delaying critical path measurements
-            encoded, frame = self.data_q.get()
+            data = self.data_q.get()
+            if data is None:
+                print("Video Stream Terminated")
+                break
+            encoded, frame = data
+
             num_bytes += encoded.numel()
             dec_frame = self.decoder(encoded).detach()
 
@@ -150,10 +156,50 @@ class SingleSenderSimulator():
         pass
     #PRIVATE FUNCTIONS
 
-    #Private function called by both train and video thread to keep track of broadcast data
-    #Plots the data on the tensorboard so we can monitor the data transmission
-    def __record_network_traffic(num_bytes):
-        pass
+#Simulates a file as being a live video stream returning rate frames per second
+class CameraVideoSimulator():
+    #Opens the file and initilizes the video
+    def __init__(self, rate=30, size=None):
+
+        #Parameters for frame reading
+        self.num_frames_read = 0
+        self.last_frame_time = time.time()
+        self.time_between_frames = 1.0/rate
+
+        self.stream = cv2.VideoCapture(0)
+        self.frameWidth = int(self.stream.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.frameHeight = int(self.stream.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.next_frame()
+
+
+    
+    def next_frame(self):
+        ret, frame = self.stream.read()
+        if not ret:#Check for error
+            return None
+
+        frame = torch.FloatTensor(frame).permute(2, 1, 0)/255.0
+        frame = frame.view(1, 3, self.frameWidth, self.frameHeight)
+
+        #Sleep so that we ensure appropriate frame rate, only return at the proper time
+        now = time.time()
+        sleep_time = self.time_between_frames - (now - self.last_frame_time)
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+        #If negative this should have arrived already and we are behind so just go so time gets earlier
+        self.last_frame_time = now + sleep_time
+        #Return value
+        return frame
+
+    def __del__(self):
+        self.stream.release()
+
 
 #Simulates a file as being a live video stream returning rate frames per second
 class VideoSimulator():
@@ -205,13 +251,12 @@ class VideoSimulator():
         frame = self.get_frame(self.num_frames_read)
         self.num_frames_read+=1
         #Sleep so that we ensure appropriate frame rate, only return at the proper time
-        sleep_time = self.time_between_frames - (time.time() - self.last_frame_time)
+        now = time.time()
+        sleep_time = self.time_between_frames - (now - self.last_frame_time)
         if sleep_time > 0:
-            #print("Sleeping for: %g" % sleep_time)
             time.sleep(sleep_time)
-        #else:
-        #    print("Warning: Was too slow by: %g", sleep_time)
-        self.last_frame_time = time.time()
+        #If negative this should have arrived already and we are behind so just go so time gets earlier
+        self.last_frame_time = now + sleep_time
         #Return value
         return frame
 

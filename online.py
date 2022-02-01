@@ -86,7 +86,7 @@ def print_thread(args, data_q):
 def main_online():
     
     parser = argparse.ArgumentParser(description='Arguments for Online Training')
-    parser.add_argument('video', type=str, help='The path to the video to load (from current directory)')
+    parser.add_argument('--video', type=None, help='The path to the video to load (from current directory). If this is empty then uses the video camera instead.')
     parser.add_argument('--lr', type=float, default=0.01, help='The learning rate for the model')
     parser.add_argument('--fps', type=float, default=40, help='The FPS to target (may be slower)')
     parser.add_argument('--update_err', type=float, default=0.2, help='The error that causes a new model to be broadcast')
@@ -108,7 +108,10 @@ def main_online():
     device = 'cuda' if args.cuda else 'cpu'
     sender = arch.Sender(Autoencoder(), linear_reward_func, data_q, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)
 
-    video_sim = sim.VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps)#, size=(340, 256))
+    if args.video is not None:
+        video_sim = sim.VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps)#, size=(340, 256))
+    else:
+        video_sim = sim.CameraVideoSimulator(rate=args.fps)
     local_sim = sim.SingleSenderSimulator(sender, data_q)
     local_sim.start(video_sim, args.stop, args.out)
     p.kill()
