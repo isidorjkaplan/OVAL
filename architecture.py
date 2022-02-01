@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 # OUTPUT: This will output encoded frames, and periodically decoder models
 class Sender():
     #Init function for Sender
-    def __init__(self, autoencoder, reward_func, board, min_frames=10, max_buffer_size=10, live_device='cuda', train_device='cuda', fallback=None):
+    def __init__(self, autoencoder, reward_func, board, lr, max_buffer_size, update_threshold, min_frames=10, live_device='cuda', train_device='cuda', fallback=None):
         #Live model is used for actively encoding frames, and stores the last broadcast model
         self.live_model = autoencoder.clone()
         #As we train with random encoding sizes we will keep track of a map enc_size->loss
@@ -40,6 +40,9 @@ class Sender():
 
         self.train_q = multiprocessing.Queue()
         self.model_q = multiprocessing.Queue()
+
+        self.update_threshold = update_threshold
+        self.lr = lr
         pass
 
     # PUBLIC METHODS
@@ -53,7 +56,7 @@ class Sender():
         #Train model is the one that we are actively training. Periodicailly we set live_model = train_model with a broadcast
         self.train_model = self.live_model.clone()
         params = list(self.train_model.encoder.parameters()) +  list(self.train_model.decoder.parameters())
-        self.optimizer = torch.optim.Adam(params, lr=0.01)
+        self.optimizer = torch.optim.Adam(params, lr=self.lr)
 
     
     #Run one iteration of training on its local buffer to train AE
@@ -105,7 +108,7 @@ class Sender():
 
         self.iter+=1
         #FOR NOW ALWAYS UPDATE, CHANGE THIS LATER
-        if rel_err >= 0.20: #Should update in 5% difference
+        if rel_err >= self.update_threshold: #Should update in 5% difference
             print("Broadcasting Model Update")
             #Send to the thread handling evaluation
             self.model_q.put(self.train_model.encoder.cpu().state_dict())
