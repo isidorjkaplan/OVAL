@@ -72,7 +72,8 @@ def linear_reward_func(enc_size, loss):
 def print_thread(args, data_q):
     board = "runs/%d" % time.time()
     writer = SummaryWriter(board)
-    writer.add_text("Args", args)
+    for key in args:
+        writer.add_text("Args/%s" % key, str(args[key]))
     while True:
         label, y, x = data_q.get()
         writer.add_scalar(label, y, x)
@@ -87,20 +88,19 @@ def main_online():
     parser = argparse.ArgumentParser(description='Arguments for Online Training')
     parser.add_argument('video', type=str, help='The path to the video to load (from current directory)')
     parser.add_argument('--lr', type=float, default=0.01, help='The learning rate for the model')
-    parser.add_argument('--fps', type=float, default=30, help='The FPS to target (may be slower)')
+    parser.add_argument('--fps', type=float, default=40, help='The FPS to target (may be slower)')
     parser.add_argument('--update_err', type=float, default=0.2, help='The error that causes a new model to be broadcast')
     parser.add_argument('--stop', type=float, default=None, help='Time after which we stop video')
     parser.add_argument('--repeat_video', action="store_true", default=False, help='Repeat when the video runs out')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
     parser.add_argument('--buffer_size', type=int, default=10, help='The target buffer size in frames')
-
     parser.add_argument('--out', type=str, default=None, help='The path to save the decoded video for inspection')
 
     args = parser.parse_args()
 
 
     data_q = Queue()
-    p = Process(target=print_thread, args=(str(args), data_q,))
+    p = Process(target=print_thread, args=(vars(args), data_q,))
     p.start()
     # Download the sample video
     

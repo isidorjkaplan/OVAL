@@ -10,6 +10,7 @@ from torch.multiprocessing import Queue
 import cv2
 import matplotlib.pyplot as plt
 import ctypes
+import traceback
 from skvideo.io import FFmpegWriter
 
 
@@ -58,13 +59,13 @@ class SingleSenderSimulator():
             p_recv.join()
         except KeyboardInterrupt as e:
             print("Captured Keyboard Interrupt")
-            print(e)
+            print(traceback.format_exc())
             p_train.kill()
             p_recv.kill()
             p_train.join()
             p_recv.join()
         except Exception as e:
-            print(e)
+            print(traceback.format_exc())
             p_train.kill()
             p_recv.kill()
             p_train.join()
@@ -102,7 +103,9 @@ class SingleSenderSimulator():
             encoded.share_memory_()
             frame.share_memory_()
             self.data_q.put((encoded, frame))
-            self.board.put(("timing/send_fps (frames/sec)", 1/(time.time() - start), i))
+            now = time.time()
+            if abs(now-start)>0.00001: #Somehow I was getting a divide by zero error?
+                self.board.put(("timing/send_fps (frames/sec)", 1/(now - start), i))
             start = time.time()
             #Evaluate the error on our encoding to report for testing set
         self.done.value = True
@@ -128,7 +131,7 @@ class SingleSenderSimulator():
             #Live display of video 
             dec_np_frame = dec_frame[0].permute(2, 1, 0).numpy()
             if out_file is not None:
-                out.writeFrame(np.uint8(dec_np_frame))
+                out.writeFrame(np.uint8(255*dec_np_frame))
             if frame_num % 30 == 0:
                 cv2.imshow("Decoded", dec_np_frame)
                 cv2.imshow("Real", frame[0].permute(2, 1, 0).numpy())
