@@ -10,6 +10,8 @@ from torch.multiprocessing import Queue
 import cv2
 import matplotlib.pyplot as plt
 import ctypes
+from skvideo.io import FFmpegWriter
+
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -44,14 +46,14 @@ class SingleSenderSimulator():
     #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
     # When this returns it must have killed both the train and video thread
     # Will return some final statistics such as the overall error rate, overall network traffic, overall accuracy for the entire video
-    def start(self, video):
+    def start(self, video, runtime, out_file):
         p_train = Process(target=self.train_thread)
         p_train.start() #Start training and then go to the live video feed
 
-        p_recv = Process(target=self.recieve_thread)
+        p_recv = Process(target=self.recieve_thread, args=(out_file,))
         p_recv.start()
         try:
-            self.video_thread(video)
+            self.video_thread(video, runtime)
             p_train.join() #Wait for training thread to kill itself safely
             p_recv.join()
         except KeyboardInterrupt as e:
@@ -86,10 +88,14 @@ class SingleSenderSimulator():
     #For each frame it takes it, has the sender encode it
     #For testing this will then evaluate the accuracy of the encoding and keep track of network traffic
     #It's network traffic, and evaluation of the encoded videos sent will be tested here and plotted
-    def video_thread(self, video):
+    def video_thread(self, video, runtime):
         start = time.time()
+        if runtime is not None:
+            stop_time = start + runtime
         for i,frame in enumerate(video):
             if frame is None:
+                break
+            if runtime is not None and time.time() > stop_time:
                 break
             #Perform encoding and transmit it
             encoded = self.sender.evaluate(frame).detach()
@@ -102,7 +108,9 @@ class SingleSenderSimulator():
         self.done.value = True
         print("Finished reading Video")
             
-    def recieve_thread(self):
+    def recieve_thread(self, out_file):
+        if out_file is not None:
+            out = FFmpegWriter(out_file)
         frame_num = 0
         while not self.done.value:
             #THIS IS TOO SLOW. Must do this in another thread
@@ -116,15 +124,21 @@ class SingleSenderSimulator():
             #frame = self.video.get_frame(frame_num)
             error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
             #print("loss_v=%g" % error)
-            self.board.put(("reciever/realtime frame loss", error, frame_num))  
+            self.board.put(("reciever/realtime frame loss", error, frame_num)) 
+            #Live display of video 
+            dec_np_frame = dec_frame[0].permute(2, 1, 0).numpy()
+            if out_file is not None:
+                out.writeFrame(np.uint8(dec_np_frame))
             if frame_num % 30 == 0:
-                cv2.imshow("Decoded", dec_frame[0].permute(1, 2, 0).numpy())
-                cv2.imshow("Real", frame[0].permute(1, 2, 0).numpy())
+                cv2.imshow("Decoded", dec_np_frame)
+                cv2.imshow("Real", frame[0].permute(2, 1, 0).numpy())
                 cv2.waitKey(1)
             frame_num+=1
             #plt.imshow(dec_frame[0].permute(1, 2, 0))
             #plt.show(block=False)
             #print("Recieved encoded frame with loss = " + str(error.item()))
+        if out_file is not None:
+            out.close()
         print("Recieve thread terminated")
         pass
     #PRIVATE FUNCTIONS

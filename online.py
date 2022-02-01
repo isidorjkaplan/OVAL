@@ -89,9 +89,11 @@ def main_online():
     parser.add_argument('--lr', type=float, default=0.01, help='The learning rate for the model')
     parser.add_argument('--fps', type=float, default=30, help='The FPS to target (may be slower)')
     parser.add_argument('--update_err', type=float, default=0.2, help='The error that causes a new model to be broadcast')
+    parser.add_argument('--stop', type=float, default=None, help='Time after which we stop video')
     parser.add_argument('--repeat_video', action="store_true", default=False, help='Repeat when the video runs out')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
     parser.add_argument('--buffer_size', type=int, default=10, help='The target buffer size in frames')
+
     parser.add_argument('--out', type=str, default=None, help='The path to save the decoded video for inspection')
 
     args = parser.parse_args()
@@ -108,7 +110,7 @@ def main_online():
 
     video_sim = sim.VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps)#, size=(340, 256))
     local_sim = sim.SingleSenderSimulator(sender, data_q)
-    local_sim.start(video_sim)
+    local_sim.start(video_sim, args.stop, args.out)
     p.kill()
     p.join()
 
