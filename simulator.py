@@ -93,6 +93,8 @@ class SingleSenderSimulator():
                 break
             #Perform encoding and transmit it
             encoded = self.sender.evaluate(frame).detach()
+            encoded.share_memory_()
+            frame.share_memory_()
             self.data_q.put((encoded, frame))
             self.board.put(("timing/send_fps (frames/sec)", 1/(time.time() - start), i))
             start = time.time()
