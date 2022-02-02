@@ -24,6 +24,8 @@ class Encoder(nn.Module):
         self.conv_preproc = nn.Sequential(
             nn.Conv2d(3,16,kernel_size=(3,3),padding=1),
             nn.ReLU(inplace=True),
+            nn.Conv2d(16,8,kernel_size=(3,3),padding=1),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2,padding=0,dilation=1,ceil_mode=False),
             nn.Conv2d(8,3,kernel_size=(3,3),padding=1),
             nn.ReLU(inplace=True),
