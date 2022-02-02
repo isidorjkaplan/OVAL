@@ -20,7 +20,22 @@ class Autoencoder():
 class Encoder(nn.Module):
     def __init__(self, mode:str, num_enc_layers:int, num_frames:int, input_dim):
         super().__init__()
-        self.encoder_1_convlstm = ConvLSTMCell(input_dim=input_dim,
+        # feature extraction taken from first few layers of VGG 16
+        self.conv_preproc = nn.Sequential(
+            nn.Conv2d(3,32,kernel_size=(3,3),stride=2,padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(32,16,kernel_size=(3,3),stride=2,padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2,stride=2,padding=0,dilation=1,ceil_mode=False),
+            nn.Conv2d(16,8,kernel_size=(3,3),stride=2,padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(8,3,kernel_size=(3,3),stride=2,padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0,dilation=1, ceil_mode=False)
+        )
+
+        # ConvLSTM
+        self.encoder_1_convlstm = ConvLSTMCell(input_dim=3,
                                                hidden_dim=num_frames,
                                                kernel_size=(3, 3),
                                                bias=True)
@@ -29,7 +44,17 @@ class Encoder(nn.Module):
                                                hidden_dim=num_frames,
                                                kernel_size=(3, 3),
                                                bias=True)
-        self.layers = [self.encoder_1_convlstm, self.encoder_1_convlstm]
+        self.conv_LSTM_layers = [self.encoder_1_convlstm, self.encoder_1_convlstm]
+
+        # DownSampling
+        self.downsampling = [
+            nn.Sequential(nn.Conv2d(3,64,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
+            nn.Sequential(nn.Conv2d(64,32,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
+            nn.Sequential(nn.Conv2d(32,16,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
+            nn.Sequential(nn.Conv2d(16,8,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
+            nn.Sequential(nn.Conv2d(8,3,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True))
+        ]
+
     #Takes in features as well as the encoding size to use this time
     # INPUTS:
     #    x = Input Image
@@ -43,21 +68,26 @@ class Encoder(nn.Module):
         input: Tensor of shape (batch, time, channel, height, width)        #   batch, time, channel, height, width
         """
         # find size of different input dimensions
-        b, seq_len, _, h, w = x.size()
+        # b, seq_len, _, h, w = x.size()
         assert enc_level < self.num_enc_layers
 
+        ## begin feature extraction
+        x = self.conv_preproc(x)
+        b, seq_len, _, h, w = x.size()
+        ## conv lstm
         h_t, c_t = self.encoder_1_convlstm.init_hidden(batch_size=b, image_size=(h, w))
         h_t2, c_t2 = self.encoder_2_convlstm.init_hidden(batch_size=b, image_size=(h, w))
-        # encoder
+
         for t in range(seq_len):
-            h_t, c_t = self.encoder_1_convlstm(input_tensor=x[:, t, :, :],
+            x, c_t = self.encoder_1_convlstm(input_tensor=x[:, t, :, :],
                                                cur_state=[h_t, c_t])  # we could concat to provide skip conn here
-            h_t2, c_t2 = self.encoder_2_convlstm(input_tensor=h_t,
+            x, c_t2 = self.encoder_2_convlstm(input_tensor=h_t,
                                                  cur_state=[h_t2, c_t2])  # we could concat to provide skip conn here
 
-        # encoder_vector
-        encoder_vector = h_t2
-        return encoder_vector
+        # begin downsampling with variable encoding
+        for i in range(enc_level):
+            x = self.downsampling[i](x)
+        return x
 
 class Decoder(nn.Module):
     def __init__(self, mode:str, num_enc_layers:int, num_frames):
