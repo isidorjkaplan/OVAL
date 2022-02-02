@@ -40,9 +40,9 @@ class Autoencoder():
 class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(3, 16, 3, stride=2, padding=1)  
+        self.conv1 = nn.Conv2d(3, 16, 3, stride=1, padding=1)  
         self.conv2 = nn.Conv2d(16, 8, 3, stride=2, padding=1)
-        self.conv4 = nn.Conv2d(8, 3, 3, stride=2, padding=1)
+        self.conv4 = nn.Conv2d(8, 4, 3, stride=2, padding=1)
         pass
 
     def forward(self, x):
@@ -55,9 +55,9 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self):
         super().__init__()
-        self.t_conv4 = nn.ConvTranspose2d(3, 8, 2, stride=2, padding=1)#Using 3 to ensure larger then input
-        self.t_conv2 = nn.ConvTranspose2d(8, 16, 2, stride=2, padding=1)
-        self.t_conv1 = nn.ConvTranspose2d(16, 3, 2, stride=2, padding=1)
+        self.t_conv4 = nn.ConvTranspose2d(4, 8, 3, stride=2, padding=1)#Using 3 to ensure larger then input
+        self.t_conv2 = nn.ConvTranspose2d(8, 16, 3, stride=2, padding=1)
+        self.t_conv1 = nn.ConvTranspose2d(16, 3, 3, stride=1, padding=1)
         pass
 
     def forward(self, x):
@@ -101,7 +101,8 @@ def main_online():
     parser.add_argument('--stop', type=float, default=None, help='Time after which we stop video')
     parser.add_argument('--repeat_video', action="store_true", default=False, help='Repeat when the video runs out')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
-    parser.add_argument('--buffer_size', type=int, default=20, help='The target buffer size in frames')
+    parser.add_argument('--buffer_size', type=int, default=10, help='The target buffer size in frames')
+    parser.add_argument('--loss', default='mae', help='Loss function:  {mae, mse} ')
     parser.add_argument('--out', type=str, default=None, help='The path to save the decoded video for inspection')
 
     args = parser.parse_args()
@@ -114,15 +115,16 @@ def main_online():
     # Download the sample video
     
     #shutil.rmtree(board)
+    loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss}[args.loss]
     device = 'cuda' if args.cuda else 'cpu'
-    sender = arch.Sender(model, linear_reward_func, data_q, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)
+    sender = arch.Sender(model, linear_reward_func, data_q, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)
 
     if args.video is not None:
         video_sim = sim.VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps)#, size=(340, 256))
     else:
         video_sim = sim.CameraVideoSimulator(rate=args.fps)
     local_sim = sim.SingleSenderSimulator(sender, data_q)
-    local_sim.start(video_sim, args.stop, args.out)
+    local_sim.start(video_sim, args.stop, args.out, loss_fn)
     p.kill()
     p.join()
 

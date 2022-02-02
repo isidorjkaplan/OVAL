@@ -47,11 +47,11 @@ class SingleSenderSimulator():
     #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
     # When this returns it must have killed both the train and video thread
     # Will return some final statistics such as the overall error rate, overall network traffic, overall accuracy for the entire video
-    def start(self, video, runtime, out_file):
+    def start(self, video, runtime, out_file, loss_fn):
         p_train = Process(target=self.train_thread)
         p_train.start() #Start training and then go to the live video feed
 
-        p_recv = Process(target=self.recieve_thread, args=(out_file,))
+        p_recv = Process(target=self.recieve_thread, args=(out_file,loss_fn,))
         p_recv.start()
         try:
             self.video_thread(video, runtime)
@@ -112,7 +112,7 @@ class SingleSenderSimulator():
         self.data_q.put(None) #Signify it is done
         print("Finished reading Video")
             
-    def recieve_thread(self, out_file):
+    def recieve_thread(self, out_file, loss_fn):
         if out_file is not None:
             out = FFmpegWriter(out_file)
         frame_num = 0

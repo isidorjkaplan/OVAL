@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 # OUTPUT: This will output encoded frames, and periodically decoder models
 class Sender():
     #Init function for Sender
-    def __init__(self, autoencoder, reward_func, board, lr, max_buffer_size, update_threshold, min_frames=10, live_device='cuda', train_device='cuda', fallback=None):
+    def __init__(self, autoencoder, reward_func, board, lr, max_buffer_size, update_threshold, loss_fn, min_frames=10, live_device='cuda', train_device='cuda', fallback=None):
         #Live model is used for actively encoding frames, and stores the last broadcast model
         self.live_model = autoencoder.clone()
         #As we train with random encoding sizes we will keep track of a map enc_size->loss
@@ -33,6 +33,7 @@ class Sender():
         self.min_frames = min_frames
         #How many frames can the largest our buffer be. If it is larger we start throwing out old frames
         self.max_buffer_size = max_buffer_size
+        self.loss_fn = loss_fn
 
         self.board = board
         self.live_device = live_device
@@ -92,11 +93,11 @@ class Sender():
         dec_frame = self.train_model.decoder(self.train_model.encoder(data))
         data_mse = data[:,:,:dec_frame.shape[2], :dec_frame.shape[3]] #Due to conv fringing, not same size. Almost same size. Just cut
         #print("%s -> %s" % (str(data.shape), str(data_mse.shape)))
-        loss_train = F.mse_loss(data_mse, dec_frame) #Compute the loss
+        loss_train = self.loss_fn(data_mse, dec_frame) #Compute the loss
         self.board.put(("sender/loss_train (batch)", loss_train.detach().cpu().item(), self.iter))
 
         self.live_model.to(self.train_device)
-        loss_live = F.mse_loss(data_mse, self.live_model.decoder(self.live_model.encoder(data))) #Compute the loss
+        loss_live = self.loss_fn(data_mse, self.live_model.decoder(self.live_model.encoder(data))) #Compute the loss
         self.board.put(("sender/loss_live (batch)", loss_live.detach().cpu().item(), self.iter))
 
         loss_train.backward()
