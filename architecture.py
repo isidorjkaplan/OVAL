@@ -55,7 +55,10 @@ class Sender():
         #The hidden state of our LSTM. Will carry over even as we switch active models. Used for the real-time frames
         self.hidden = None
         #Train model is the one that we are actively training. Periodicailly we set live_model = train_model with a broadcast
-        self.train_model = self.live_model.clone()
+        if self.update_threshold is not None:
+            self.train_model = self.live_model.clone()
+        else:
+            self.train_model = self.live_model #only one model
         params = list(self.train_model.encoder.parameters()) +  list(self.train_model.decoder.parameters())
         self.optimizer = torch.optim.Adam(params, lr=self.lr)
 
@@ -96,17 +99,18 @@ class Sender():
         loss_train = self.loss_fn(data_mse, dec_frame) #Compute the loss
         self.board.put(("sender/loss_train (batch)", loss_train.detach().cpu().item(), self.iter))
 
-        self.live_model.to(self.train_device)
-        loss_live = self.loss_fn(data_mse, self.live_model.decoder(self.live_model.encoder(data))) #Compute the loss
-        self.board.put(("sender/loss_live (batch)", loss_live.detach().cpu().item(), self.iter))
+        if self.update_threshold is not None:
+            self.live_model.to(self.train_device)
+            loss_live = self.loss_fn(data_mse, self.live_model.decoder(self.live_model.encoder(data))) #Compute the loss
+            self.board.put(("sender/loss_live (batch)", loss_live.detach().cpu().item(), self.iter))
+            
+            rel_err = (loss_live/loss_train - 1).detach().cpu().item()
+            self.board.put(("sender/relative_error (batch)", rel_err, self.iter))
 
         loss_train.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
-
-        rel_err = (loss_live/loss_train - 1).detach().cpu().item()
-        self.board.put(("sender/relative_error (batch)", rel_err, self.iter))
-    
+        
         self.board.put(("timing/train_iter (sec)", time.time() - start, self.iter))
 
         #del data
@@ -116,7 +120,7 @@ class Sender():
 
         self.iter+=1
         #FOR NOW ALWAYS UPDATE, CHANGE THIS LATER
-        if rel_err >= self.update_threshold: #Should update in 5% difference
+        if self.update_threshold is None or rel_err >= self.update_threshold: #Should update in 5% difference
             print("Broadcasting Model Update")
             #Send to the thread handling evaluation
             self.model_q.put(self.train_model.encoder.cpu().state_dict())
