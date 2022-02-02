@@ -40,6 +40,9 @@ class Autoencoder():
 class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
+        #self.conv_net = nn.Sequential(
+        #
+        #)
         self.conv1 = nn.Conv2d(3, 16, 3, stride=1, padding=1)  
         self.conv2 = nn.Conv2d(16, 8, 3, stride=2, padding=1)
         self.conv4 = nn.Conv2d(8, 4, 3, stride=2, padding=1)
@@ -58,13 +61,19 @@ class Decoder(nn.Module):
         self.t_conv4 = nn.ConvTranspose2d(4, 8, 3, stride=2, padding=1)#Using 3 to ensure larger then input
         self.t_conv2 = nn.ConvTranspose2d(8, 16, 3, stride=2, padding=1)
         self.t_conv1 = nn.ConvTranspose2d(16, 3, 3, stride=1, padding=1)
+        self.set_enc_dtype(torch.float16)
         pass
+
+    def set_enc_dtype(self, t_type):
+        self.t_type = t_type
+
 
     def forward(self, x):
         x = F.relu(self.t_conv4(x))
         #x = F.relu(self.t_conv3(x))
         x = F.relu(self.t_conv2(x))
         x = F.sigmoid(self.t_conv1(x))
+        x = x.type(self.t_type)
         return x
 
 def linear_reward_func(enc_size, loss):
@@ -101,15 +110,18 @@ def main_online():
     parser.add_argument('--stop', type=float, default=None, help='Time after which we stop video')
     parser.add_argument('--repeat_video', action="store_true", default=False, help='Repeat when the video runs out')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
+    parser.add_argument('--enc_bytes', type=int, default=16, help="Number of bytes per encoded element. {16, 32, 64}")
     parser.add_argument('--buffer_size', type=int, default=10, help='The target buffer size in frames')
     parser.add_argument('--loss', default='mae', help='Loss function:  {mae, mse} ')
     parser.add_argument('--out', type=str, default=None, help='The path to save the decoded video for inspection')
 
     args = parser.parse_args()
 
+    assert args.enc_bytes in [16, 32, 64]
 
     data_q = Queue()
     model = Autoencoder()
+    model.decoder.set_enc_dtype({16:torch.float16, 32:torch.float32, 64:torch.float64}[args.enc_bytes])
     p = Process(target=print_thread, args=(vars(args), data_q,model,))
     p.start()
     # Download the sample video
