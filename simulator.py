@@ -132,7 +132,7 @@ class SingleSenderSimulator():
 
             num_bytes += encoded.numel()
             dec_frame = self.decoder(encoded).detach()
-
+            frame = frame[:,:,:dec_frame.shape[2], :dec_frame.shape[3]] #Due to conv fringing, not same size. Almost same size. Just cut
             #frame = self.video.get_frame(frame_num)
             error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
             #print("loss_v=%g" % error)

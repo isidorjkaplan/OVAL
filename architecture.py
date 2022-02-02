@@ -80,16 +80,23 @@ class Sender():
             time.sleep(0)#Yield the thread
             return None
 
+        #del data
+        torch.cuda.empty_cache()
+
         start = time.time()
             
         data = torch.cat(self.buffer, dim=0).detach().to(self.train_device) #Construct the training data
 
+
         self.train_model.to(self.train_device)
-        loss_train = F.mse_loss(data, self.train_model.decoder(self.train_model.encoder(data))) #Compute the loss
+        dec_frame = self.train_model.decoder(self.train_model.encoder(data))
+        data_mse = data[:,:,:dec_frame.shape[2], :dec_frame.shape[3]] #Due to conv fringing, not same size. Almost same size. Just cut
+        #print("%s -> %s" % (str(data.shape), str(data_mse.shape)))
+        loss_train = F.mse_loss(data_mse, dec_frame) #Compute the loss
         self.board.put(("sender/loss_train (batch)", loss_train.detach().cpu().item(), self.iter))
 
         self.live_model.to(self.train_device)
-        loss_live = F.mse_loss(data, self.live_model.decoder(self.live_model.encoder(data))) #Compute the loss
+        loss_live = F.mse_loss(data_mse, self.live_model.decoder(self.live_model.encoder(data))) #Compute the loss
         self.board.put(("sender/loss_live (batch)", loss_live.detach().cpu().item(), self.iter))
 
         loss_train.backward()
