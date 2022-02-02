@@ -40,27 +40,33 @@ class Autoencoder():
 class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
-        #self.conv_net = nn.Sequential(
-        #
-        #)
-        self.conv1 = nn.Conv2d(3, 16, 3, stride=1, padding=1)  
-        self.conv2 = nn.Conv2d(16, 8, 3, stride=2, padding=1)
-        self.conv4 = nn.Conv2d(8, 4, 3, stride=2, padding=1)
+        self.conv_net = nn.Sequential(
+            nn.Conv2d(3, 16,kernel_size=(3,3),stride=2,padding=1), 
+            nn.ReLU(inplace=True),
+            nn.Conv2d(16, 8,kernel_size=(3,3), padding=1), 
+            nn.ReLU(inplace=True),
+            nn.Conv2d(8,4,kernel_size=(3,3),stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(4,2,kernel_size=(3,3),padding=1)
+        )
+
         pass
 
     def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        #x = F.relu(self.conv3(x))
-        x = self.conv4(x)
-        return x
+        return self.conv_net(x)
         
 class Decoder(nn.Module):
     def __init__(self):
         super().__init__()
-        self.t_conv4 = nn.ConvTranspose2d(4, 8, 3, stride=2, padding=1)#Using 3 to ensure larger then input
-        self.t_conv2 = nn.ConvTranspose2d(8, 16, 3, stride=2, padding=1)
-        self.t_conv1 = nn.ConvTranspose2d(16, 3, 3, stride=1, padding=1)
+        self.conv_net_t = nn.Sequential(
+            nn.ConvTranspose2d(2,4,kernel_size=(3,3),stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(4,8,kernel_size=(3,3),stride=1, padding=1),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(8, 16,kernel_size=(3,3), stride=2,padding=1), 
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(16,3,kernel_size=(3,3),stride=1, padding=1)
+        )
         self.set_enc_dtype(torch.float16)
         pass
 
@@ -69,10 +75,7 @@ class Decoder(nn.Module):
 
 
     def forward(self, x):
-        x = F.relu(self.t_conv4(x))
-        #x = F.relu(self.t_conv3(x))
-        x = F.relu(self.t_conv2(x))
-        x = F.sigmoid(self.t_conv1(x))
+        x = self.conv_net_t(x)
         x = x.type(self.t_type)
         return x
 

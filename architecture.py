@@ -3,6 +3,7 @@ import multiprocessing
 import time
 import torch
 import torch.nn.functional as F
+import torch.nn as nn
 import os
 
 from torch.utils.tensorboard import SummaryWriter
@@ -121,7 +122,8 @@ class Sender():
         self.iter+=1
         #FOR NOW ALWAYS UPDATE, CHANGE THIS LATER
         if self.update_threshold is None or rel_err >= self.update_threshold: #Should update in 5% difference
-            print("Broadcasting Model Update")
+            if self.update_threshold is not None:
+                print("Broadcasting Model Update")
             #Send to the thread handling evaluation
             self.model_q.put(self.train_model.encoder.cpu().state_dict())
             #Update for should_update evaluation
