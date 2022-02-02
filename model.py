@@ -1,4 +1,5 @@
 from collections import namedtuple
+from tkinter import X
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -42,7 +43,6 @@ class Encoder(nn.Module):
                                                hidden_dim=num_frames,
                                                kernel_size=(3, 3),
                                                bias=True)
-        self.conv_LSTM_layers = [self.encoder_1_convlstm, self.encoder_1_convlstm]
 
         # DownSampling
         self.downsampling = [
@@ -76,12 +76,11 @@ class Encoder(nn.Module):
         h_t, c_t = self.encoder_1_convlstm.init_hidden(batch_size=b, image_size=(h, w))
         h_t2, c_t2 = self.encoder_2_convlstm.init_hidden(batch_size=b, image_size=(h, w))
 
-        for t in range(seq_len):
-            x, c_t = self.encoder_1_convlstm(input_tensor=x[:, t, :, :],
-                                               cur_state=[h_t, c_t])  # we could concat to provide skip conn here
-            x, c_t2 = self.encoder_2_convlstm(input_tensor=h_t,
-                                                 cur_state=[h_t2, c_t2])  # we could concat to provide skip conn here
-
+        h_t, c_t = self.encoder_1_convlstm(input_tensor=x[:, 0, :, :],
+                                            cur_state=[h_t, c_t])  # we could concat to provide skip conn here
+        h_t2, c_t2 = self.encoder_2_convlstm(input_tensor=h_t,
+                                                cur_state=[h_t2, c_t2])  # we could concat to provide skip conn here
+        x = h_t2
         # begin downsampling with variable encoding
         for i in range(enc_level):
             x = self.downsampling[i](x)
@@ -90,7 +89,14 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, mode:str, num_enc_layers:int, num_frames):
         super().__init__()
-        self.decoder_1_convlstm = ConvLSTMCell(input_dim=num_frames,  # nf + 1
+        self.upsample = [
+            nn.Sequential(nn.ConvTranspose2d(3,8,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
+            nn.Sequential(nn.ConvTranspose2d(8,16,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
+            nn.Sequential(nn.ConvTranspose2d(16,32,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
+            nn.Sequential(nn.ConvTranspose2d(32,64,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
+            nn.Sequential(nn.ConvTranspose2d(64,3,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True))
+        ]
+        self.decoder_1_convlstm = ConvLSTMCell(input_dim=3,  # nf + 1
                                                hidden_dim=num_frames,
                                                kernel_size=(3, 3),
                                                bias=True)
@@ -100,12 +106,15 @@ class Decoder(nn.Module):
                                                kernel_size=(3, 3),
                                                bias=True)
 
-        self.decoder_CNN = nn.Conv3d(in_channels=num_frames,
-                                     out_channels=1,
-                                     kernel_size=(1, 3, 3),
-                                     padding=(0, 1, 1))
+        self.conv_postproc = nn.Sequential(
+            nn.ConvTranspose2d(3,16,kernel_size=(3,3),padding=1),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(16,8,kernel_size=(3,3),padding=1),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(8,3,kernel_size=(3,3),padding=1),
+        )
 
-        self.layers = [self.decoder_1_convlstm, self.decoder_2_convlstm, self.decoder_CNN]
+
 
      #Takes in encoded image as well as context / history
     # INPUTS:
@@ -114,19 +123,25 @@ class Decoder(nn.Module):
     # OUTPUTS:
     #    decoded image: The actual decoded image, reconstructed
     #    hidden:        Also returns the hidden state for future use if needed
-    def forward(self, x, future_step, hidden=None):
+    def forward(self, x, num_enc_layers:int, future_seq=0, hidden=None):
         outputs = list()
-        for t in range(future_step):
-            h_t3, c_t3 = self.decoder_1_convlstm(input_tensor=encoder_vector,
-                                                 cur_state=[h_t3, c_t3])  # we could concat to provide skip conn here
-            h_t4, c_t4 = self.decoder_2_convlstm(input_tensor=h_t3,
-                                                 cur_state=[h_t4, c_t4])  # we could concat to provide skip conn here
-            encoder_vector = h_t4
-            outputs += [h_t4]  # predictions
+        for i in range(num_enc_layers):
+            x = self.upsample[i](x)
+
+        b, seq_len, _, h, w = x.size()
+        h_t3, c_t3 = self.decoder_1_convlstm.init_hidden(batch_size=b, image_size=(h, w))
+        h_t4, c_t4 = self.decoder_2_convlstm.init_hidden(batch_size=b, image_size=(h, w))
+
+        h_t3, c_t3 = self.decoder_1_convlstm(input_tensor=x,
+                                                cur_state=[h_t3, c_t3])  # we could concat to provide skip conn here
+        h_t4, c_t4 = self.decoder_2_convlstm(input_tensor=h_t3,
+                                                cur_state=[h_t4, c_t4])  # we could concat to provide skip conn here
+        x = h_t4
+        outputs += [h_t4]  # predictions
 
         outputs = torch.stack(outputs, 1)
         outputs = outputs.permute(0, 2, 1, 3, 4)
-        outputs = self.decoder_CNN(outputs)
+        outputs = self.conv_postproc(outputs)
         outputs = torch.nn.Sigmoid()(outputs)
 
         return outputs
