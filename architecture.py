@@ -80,7 +80,7 @@ class Sender():
             frame = self.train_q.get()
             self.buffer.append(frame)
         while len(self.buffer) > self.max_buffer_size:
-            del self.buffer.pop(0)#Can probably do this more efficiently later
+            del self.buffer[0]
 
         if len(self.buffer) < self.min_frames:
             time.sleep(0)#Yield the thread
@@ -112,6 +112,8 @@ class Sender():
         loss_train.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
+
+        self.train_model.save_model()
         
         self.board.put(("timing/train_iter (sec)", time.time() - start, self.iter))
 

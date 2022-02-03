@@ -20,16 +20,25 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 #TEMPORRY, WILL REPLACE WITH RYANS AUTOENCODER MODEL LATER
-class Autoencoder():
-    def __init__(self):
+class Autoencoder(nn.Module):
+    def __init__(self, save_path=None):
+        super().__init__()
         self.encoder = Encoder()
         self.decoder = Decoder()
+        self.save_path = save_path
 
     def clone(self):
         ae = Autoencoder()
         ae.encoder.load_state_dict(self.encoder.state_dict())
         ae.decoder.load_state_dict(self.decoder.state_dict())
         return ae
+
+    def save_model(self):
+        if self.save_path is not None:
+            self.save(self.save_path)
+
+    def forward(self, x):
+        return self.decoder(self.encoder(x))
 
     def to(self, device):
         self.encoder.to(device)
@@ -112,13 +121,20 @@ def main_online():
     parser.add_argument('--buffer_size', type=int, default=20, help='The target buffer size in frames')
     parser.add_argument('--loss', default='mse', help='Loss function:  {mae, mse} ')
     parser.add_argument('--out', type=str, default=None, help='The path to save the decoded video for inspection')
+    parser.add_argument("--load_model", default=None, help="File for the model to load")
+    parser.add_argument("--save_model", default=None, help="File to save the model")
 
     args = parser.parse_args()
 
     assert args.enc_bytes in [16, 32, 64]
 
     data_q = Queue()
-    model = Autoencoder()
+    model = Autoencoder(save_path = args.save_model)
+    if args.load_model is not None:
+        print("Loading model: %s" % args.load_model)
+        model.load(args.load_model)
+    
+        
     p = Process(target=print_thread, args=(vars(args), data_q,model,))
     p.start()
     # Download the sample video
