@@ -148,7 +148,7 @@ class Sender():
     # INTERNAL: This will update "self.hidden" for the next call
     def evaluate(self, frame):
         #Save value onto our training buffer
-        frame.share_memory_()
+        #frame.share_memory_()
         self.train_q.put(frame)
         self.live_model.to(self.live_device)
         if not self.model_q.empty():

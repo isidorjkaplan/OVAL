@@ -100,8 +100,8 @@ class SingleSenderSimulator():
                 break
             #Perform encoding and transmit it
             encoded = self.sender.evaluate(frame).detach()
-            encoded.share_memory_()
-            frame.share_memory_()
+            #encoded.share_memory_()
+            #frame.share_memory_()
             self.data_q.put((encoded, frame))
             now = time.time()
             if abs(now-start)>0.00001: #Somehow I was getting a divide by zero error?

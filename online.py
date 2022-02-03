@@ -35,7 +35,7 @@ class Autoencoder(nn.Module):
 
     def save_model(self):
         if self.save_path is not None:
-            self.save(self.save_path)
+            torch.save(self.state_dict(), self.save_path)
 
     def forward(self, x):
         return self.decoder(self.encoder(x))
@@ -132,8 +132,8 @@ def main_online():
     model = Autoencoder(save_path = args.save_model)
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
-        model.load(args.load_model)
-    
+        model.load_state_dict(torch.load(args.load_model))
+
         
     p = Process(target=print_thread, args=(vars(args), data_q,model,))
     p.start()
