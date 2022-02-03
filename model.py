@@ -47,9 +47,9 @@ class Encoder(nn.Module):
         # DownSampling
         self.downsampling = [
             nn.Sequential(nn.Conv2d(3,64,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
-            nn.Sequential(nn.Conv2d(64,32,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
+            nn.Sequential(nn.Conv2d(64,32,kernel_size=(3,3), padding=1), nn.ReLU(True)),
             nn.Sequential(nn.Conv2d(32,16,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
-            nn.Sequential(nn.Conv2d(16,8,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
+            nn.Sequential(nn.Conv2d(16,8,kernel_size=(3,3), padding=1), nn.ReLU(True)),
             nn.Sequential(nn.Conv2d(8,3,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True))
         ]
 
@@ -91,9 +91,9 @@ class Decoder(nn.Module):
         super().__init__()
         self.upsample = [
             nn.Sequential(nn.ConvTranspose2d(3,8,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
-            nn.Sequential(nn.ConvTranspose2d(8,16,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
+            nn.Sequential(nn.ConvTranspose2d(8,16,kernel_size=(3,3), padding=1), nn.ReLU(True)),
             nn.Sequential(nn.ConvTranspose2d(16,32,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
-            nn.Sequential(nn.ConvTranspose2d(32,64,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
+            nn.Sequential(nn.ConvTranspose2d(32,64,kernel_size=(3,3), padding=1), nn.ReLU(True)),
             nn.Sequential(nn.ConvTranspose2d(64,3,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True))
         ]
         self.decoder_1_convlstm = ConvLSTMCell(input_dim=3,  # nf + 1
