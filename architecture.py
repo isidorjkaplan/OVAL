@@ -15,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 # OUTPUT: This will output encoded frames, and periodically decoder models
 class Sender():
     #Init function for Sender
-    def __init__(self, autoencoder, reward_func, board, lr, max_buffer_size, update_threshold, loss_fn, min_frames=10, live_device='cuda', train_device='cuda', fallback=None):
+    def __init__(self, autoencoder, reward_func, board, lr, max_buffer_size, update_threshold, loss_fn, enc_bytes, min_frames=10, live_device='cuda', train_device='cuda', fallback=None):
         #Live model is used for actively encoding frames, and stores the last broadcast model
         self.live_model = autoencoder.clone()
         #As we train with random encoding sizes we will keep track of a map enc_size->loss
@@ -42,6 +42,8 @@ class Sender():
 
         self.train_q = multiprocessing.Queue()
         self.model_q = multiprocessing.Queue()
+
+        self.enc_bytes = enc_bytes
 
         self.update_threshold = update_threshold
         self.lr = lr
@@ -78,8 +80,7 @@ class Sender():
             frame = self.train_q.get()
             self.buffer.append(frame)
         while len(self.buffer) > self.max_buffer_size:
-            del self.buffer[0]
-            self.buffer.pop(0)#Can probably do this more efficiently later
+            del self.buffer.pop(0)#Can probably do this more efficiently later
 
         if len(self.buffer) < self.min_frames:
             time.sleep(0)#Yield the thread
@@ -155,7 +156,7 @@ class Sender():
         enc_state = self.live_model.encoder(frame.to(self.live_device)).cpu()
         torch.cuda.empty_cache()
 
-        return enc_state
+        return enc_state.type(self.enc_bytes)
 
 
 

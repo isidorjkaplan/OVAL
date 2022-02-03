@@ -41,13 +41,14 @@ class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv_net = nn.Sequential(
-            nn.Conv2d(3, 16,kernel_size=(3,3),stride=2,padding=1), 
+            nn.Conv2d(3, 5,kernel_size=2,stride=2), 
             nn.ReLU(inplace=True),
-            nn.Conv2d(16, 8,kernel_size=(3,3), padding=1), 
+            nn.Conv2d(5, 8,kernel_size=4, stride=2), 
             nn.ReLU(inplace=True),
-            nn.Conv2d(8,4,kernel_size=(3,3),stride=2, padding=1),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(8,6,kernel_size=8,stride=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(4,2,kernel_size=(3,3),padding=1)
+            nn.Conv2d(6,5,kernel_size=2,padding=1)
         )
 
         pass
@@ -59,24 +60,18 @@ class Decoder(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv_net_t = nn.Sequential(
-            nn.ConvTranspose2d(2,4,kernel_size=(3,3),stride=2, padding=1),
+            nn.ConvTranspose2d(5,6,kernel_size=2,stride=2),
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(4,8,kernel_size=(3,3),stride=1, padding=1),
+            nn.ConvTranspose2d(6,8,kernel_size=8,stride=2),
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(8, 16,kernel_size=(3,3), stride=2,padding=1), 
+            nn.ConvTranspose2d(8, 5,kernel_size=4, stride=2), 
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(16,3,kernel_size=(3,3),stride=1, padding=1)
+            nn.ConvTranspose2d(5,3,kernel_size=2,stride=1)
         )
-        self.set_enc_dtype(torch.float16)
         pass
-
-    def set_enc_dtype(self, t_type):
-        self.t_type = t_type
-
 
     def forward(self, x):
         x = self.conv_net_t(x)
-        x = x.type(self.t_type)
         return x
 
 def linear_reward_func(enc_size, loss):
@@ -114,8 +109,8 @@ def main_online():
     parser.add_argument('--repeat_video', action="store_true", default=False, help='Repeat when the video runs out')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
     parser.add_argument('--enc_bytes', type=int, default=16, help="Number of bytes per encoded element. {16, 32, 64}")
-    parser.add_argument('--buffer_size', type=int, default=10, help='The target buffer size in frames')
-    parser.add_argument('--loss', default='mae', help='Loss function:  {mae, mse} ')
+    parser.add_argument('--buffer_size', type=int, default=20, help='The target buffer size in frames')
+    parser.add_argument('--loss', default='mse', help='Loss function:  {mae, mse} ')
     parser.add_argument('--out', type=str, default=None, help='The path to save the decoded video for inspection')
 
     args = parser.parse_args()
@@ -124,7 +119,6 @@ def main_online():
 
     data_q = Queue()
     model = Autoencoder()
-    model.decoder.set_enc_dtype({16:torch.float16, 32:torch.float32, 64:torch.float64}[args.enc_bytes])
     p = Process(target=print_thread, args=(vars(args), data_q,model,))
     p.start()
     # Download the sample video
@@ -132,7 +126,8 @@ def main_online():
     #shutil.rmtree(board)
     loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss}[args.loss]
     device = 'cuda' if args.cuda else 'cpu'
-    sender = arch.Sender(model, linear_reward_func, data_q, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)
+    enc_bytes = {16:torch.float16, 32:torch.float32, 64:torch.float64}[args.enc_bytes];
+    sender = arch.Sender(model, linear_reward_func, data_q, enc_bytes=enc_bytes, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)
 
     if args.video is not None:
         video_sim = sim.VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps)#, size=(340, 256))

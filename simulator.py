@@ -130,8 +130,8 @@ class SingleSenderSimulator():
                 break
             encoded, frame = data
 
-    
-            num_bytes += encoded.numel()*type_sizes[encoded.dtype]
+            num_bytes += encoded.numel()*type_sizes[encoded.dtype] #Check what type was used on network
+            encoded = encoded.type(frame.dtype) #We can now upscale its type back to 32 bit for evaluation
             dec_frame = self.decoder(encoded).detach()
             frame = frame[:,:,:dec_frame.shape[2], :dec_frame.shape[3]] #Due to conv fringing, not same size. Almost same size. Just cut
             uncomp_bytes = frame.shape[1]*frame.shape[2]*frame.shape[3]*1 #For uncompressed, 1 byte per channel * C*L*W is total size
