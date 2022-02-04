@@ -100,8 +100,8 @@ class SingleSenderSimulator():
                 break
             #Perform encoding and transmit it
             encoded = self.sender.evaluate(frame).detach()
-            encoded.share_memory_()
-            frame.share_memory_()
+            #encoded.share_memory_()
+            #frame.share_memory_()
             self.data_q.put((encoded, frame))
             now = time.time()
             if abs(now-start)>0.00001: #Somehow I was getting a divide by zero error?
@@ -116,12 +116,12 @@ class SingleSenderSimulator():
         if out_file is not None:
             out = FFmpegWriter(out_file)
         frame_num = 0
+        type_sizes = {torch.float16:2, torch.float32:4, torch.float64:8}
         while not self.done.value:
             num_bytes = 0
             #THIS IS TOO SLOW. Must do this in another thread
             if not self.model_q.empty():
-                print("Reciever got new model!")
-                num_bytes += sum(p.numel() for p in self.decoder.parameters())
+                num_bytes += sum((p.numel()*type_sizes[p.dtype]) for p in self.decoder.parameters())
                 self.decoder.load_state_dict(self.model_q.get())
             #This is done here instead of send thread to avoid delaying critical path measurements
             data = self.data_q.get()
@@ -130,18 +130,21 @@ class SingleSenderSimulator():
                 break
             encoded, frame = data
 
-            num_bytes += encoded.numel()
+            num_bytes += encoded.numel()*type_sizes[encoded.dtype] #Check what type was used on network
+            encoded = encoded.type(frame.dtype) #We can now upscale its type back to 32 bit for evaluation
             dec_frame = self.decoder(encoded).detach()
             frame = frame[:,:,:dec_frame.shape[2], :dec_frame.shape[3]] #Due to conv fringing, not same size. Almost same size. Just cut
+            uncomp_bytes = frame.shape[1]*frame.shape[2]*frame.shape[3]*1 #For uncompressed, 1 byte per channel * C*L*W is total size
             #frame = self.video.get_frame(frame_num)
             error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
             #print("loss_v=%g" % error)
             self.board.put(("reciever/realtime frame loss", error, frame_num)) 
-            self.board.put(("reciever/network_traffic", num_bytes, frame_num))
+            self.board.put(("reciever/compression factor (original/compressed)", uncomp_bytes/num_bytes, frame_num))
             #Live display of video 
             dec_np_frame = dec_frame[0].permute(2, 1, 0).numpy()
+            dec_np_frame = np.uint8(255*dec_np_frame)
             if out_file is not None:
-                out.writeFrame(np.uint8(255*dec_np_frame))
+                out.writeFrame(dec_np_frame)
             if frame_num % 30 == 0:
                 cv2.imshow("Decoded", dec_np_frame)
                 cv2.imshow("Real", frame[0].permute(2, 1, 0).numpy())

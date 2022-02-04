@@ -20,16 +20,25 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 #TEMPORRY, WILL REPLACE WITH RYANS AUTOENCODER MODEL LATER
-class Autoencoder():
-    def __init__(self):
+class Autoencoder(nn.Module):
+    def __init__(self, save_path=None):
+        super().__init__()
         self.encoder = Encoder()
         self.decoder = Decoder()
+        self.save_path = save_path
 
     def clone(self):
         ae = Autoencoder()
         ae.encoder.load_state_dict(self.encoder.state_dict())
         ae.decoder.load_state_dict(self.decoder.state_dict())
         return ae
+
+    def save_model(self):
+        if self.save_path is not None:
+            torch.save(self.state_dict(), self.save_path)
+
+    def forward(self, x):
+        return self.decoder(self.encoder(x))
 
     def to(self, device):
         self.encoder.to(device)
@@ -40,31 +49,38 @@ class Autoencoder():
 class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(3, 16, 3, stride=1, padding=1)  
-        self.conv2 = nn.Conv2d(16, 8, 3, stride=2, padding=1)
-        self.conv4 = nn.Conv2d(8, 4, 3, stride=2, padding=1)
+        self.conv_net = nn.Sequential(
+            nn.Conv2d(3, 5,kernel_size=2,stride=2), 
+            nn.ReLU(inplace=True),
+            nn.Conv2d(5, 8,kernel_size=4, stride=2), 
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(8,6,kernel_size=8,stride=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(6,5,kernel_size=2,padding=1)
+        )
+
         pass
 
     def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        #x = F.relu(self.conv3(x))
-        x = self.conv4(x)
-        return x
+        return self.conv_net(x)
         
 class Decoder(nn.Module):
     def __init__(self):
         super().__init__()
-        self.t_conv4 = nn.ConvTranspose2d(4, 8, 3, stride=2, padding=1)#Using 3 to ensure larger then input
-        self.t_conv2 = nn.ConvTranspose2d(8, 16, 3, stride=2, padding=1)
-        self.t_conv1 = nn.ConvTranspose2d(16, 3, 3, stride=1, padding=1)
+        self.conv_net_t = nn.Sequential(
+            nn.ConvTranspose2d(5,6,kernel_size=2,stride=2),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(6,8,kernel_size=8,stride=2),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(8, 5,kernel_size=4, stride=2), 
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(5,3,kernel_size=2,stride=1)
+        )
         pass
 
     def forward(self, x):
-        x = F.relu(self.t_conv4(x))
-        #x = F.relu(self.t_conv3(x))
-        x = F.relu(self.t_conv2(x))
-        x = F.sigmoid(self.t_conv1(x))
+        x = self.conv_net_t(x)
         return x
 
 def linear_reward_func(enc_size, loss):
@@ -97,19 +113,28 @@ def main_online():
     parser.add_argument('--video', type=None, help='The path to the video to load (from current directory). If this is empty then uses the video camera instead.')
     parser.add_argument('--lr', type=float, default=0.01, help='The learning rate for the model')
     parser.add_argument('--fps', type=float, default=40, help='The FPS to target (may be slower)')
-    parser.add_argument('--update_err', type=float, default=0.08, help='The error that causes a new model to be broadcast')
+    parser.add_argument('--update_err', type=float, default=None, help='The ratio of losses error that causes a new model to be broadcast (0-1). Leave empty to send update every itteration (faster training as well since no local eval)')
     parser.add_argument('--stop', type=float, default=None, help='Time after which we stop video')
     parser.add_argument('--repeat_video', action="store_true", default=False, help='Repeat when the video runs out')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
-    parser.add_argument('--buffer_size', type=int, default=10, help='The target buffer size in frames')
-    parser.add_argument('--loss', default='mae', help='Loss function:  {mae, mse} ')
+    parser.add_argument('--enc_bytes', type=int, default=16, help="Number of bytes per encoded element. {16, 32, 64}")
+    parser.add_argument('--buffer_size', type=int, default=20, help='The target buffer size in frames')
+    parser.add_argument('--loss', default='mse', help='Loss function:  {mae, mse} ')
     parser.add_argument('--out', type=str, default=None, help='The path to save the decoded video for inspection')
+    parser.add_argument("--load_model", default=None, help="File for the model to load")
+    parser.add_argument("--save_model", default=None, help="File to save the model")
 
     args = parser.parse_args()
 
+    assert args.enc_bytes in [16, 32, 64]
 
     data_q = Queue()
-    model = Autoencoder()
+    model = Autoencoder(save_path = args.save_model)
+    if args.load_model is not None:
+        print("Loading model: %s" % args.load_model)
+        model.load_state_dict(torch.load(args.load_model))
+
+        
     p = Process(target=print_thread, args=(vars(args), data_q,model,))
     p.start()
     # Download the sample video
@@ -117,7 +142,8 @@ def main_online():
     #shutil.rmtree(board)
     loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss}[args.loss]
     device = 'cuda' if args.cuda else 'cpu'
-    sender = arch.Sender(model, linear_reward_func, data_q, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)
+    enc_bytes = {16:torch.float16, 32:torch.float32, 64:torch.float64}[args.enc_bytes];
+    sender = arch.Sender(model, linear_reward_func, data_q, enc_bytes=enc_bytes, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)
 
     if args.video is not None:
         video_sim = sim.VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps)#, size=(340, 256))
