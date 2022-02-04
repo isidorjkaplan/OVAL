@@ -1,4 +1,59 @@
+import numpy as np
+import cv2
+import os
+import time
 
+#Simulates a file as being a live video stream returning rate frames per second
+class videoLoader():
+    #Opens the file and initilizes the video
+    def __init__(self, filepath, rate=30, repeat = False, batch_size = 30):
+        #getting video and then saving the details
+        self.video = cv2.VideoCapture(filepath)
+        rate = int(self.video.get(cv2.CAP_PROP_FPS))
+        self.batch_size = batch_size
+        self.frameCount = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.frameWidth = int(self.video.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.frameHeight = int(self.video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        print("Loading Video=%s with frames=%d and size=(%d,%d)" % (filepath, self.frameCount, self.frameWidth, self.frameHeight))
+        
+        #Parameters for frame reading
+        self.num_frames_read = 0
+        self.batches_read = 0
+        self.last_frame_time = time.time()
+        self.time_between_frames = 1.0/rate
+        self.repeat = repeat
+
+        buf = np.empty((batch_size, self.frameHeight, self.frameWidth, 3), np.dtype('uint8'))
+        ret = True
+        while (self.num_frames_read < (self.batches_read  + 1)* batch_size  and ret):
+            ret, buf[self.num_frames_read] = self.video.read()
+            self.num_frames_read += 1
+        self.batches_read += 1
+        #self.video.release()
+
+        self.buffer = buf #save buffer
+        #self.frames = torch.FloatTensor(buf)/255
+        #self.frames = self.frames.permute(0, 3, 1, 2)#Make channel major
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.next_batch()
+    
+    def next_batch(self):
+        #returns buffer and refills it to the next batch
+        #Do all the reading and processing of the frame
+        result = self.buffer
+        buf = np.empty((self.batch_size, self.frameHeight, self.frameWidth, 3), np.dtype('uint8'))
+        ret = True
+
+        while (self.num_frames_read < (self.batches_read  + 1)* self.batch_size  and ret):
+            ret, buf[(self.num_frames_read - (self.batches_read * self.batch_size))] = self.video.read()
+            self.num_frames_read += 1
+        self.batches_read += 1
+        self.buffer = buf
+        return result
 
 #Offline Training
 # This function will train on large batches of data consisting of many videos
@@ -20,3 +75,8 @@ def main_offline():
 
 if __name__ == "__main__":
     main_offline()
+
+    loaded = videoLoader("../Movies/HuckleberryFinn.mp4")
+    for i in range(100):
+        img = next(loaded)[5]
+        cv2.imwrite(f"test/{i}.jpeg", img)
