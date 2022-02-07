@@ -19,7 +19,7 @@ class Autoencoder():
 
 
 class Encoder(nn.Module):
-    def __init__(self, mode:str, num_enc_layers:int, num_frames:int, input_dim):
+    def __init__(self, mode:str, num_enc_layers:int, num_frames:int):
         super().__init__()
         # feature extraction taken from first few layers of VGG 16
         self.conv_preproc = nn.Sequential(
