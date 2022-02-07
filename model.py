@@ -19,7 +19,7 @@ class Autoencoder():
 
 
 class Encoder(nn.Module):
-    def __init__(self, mode:str, num_enc_layers:int, num_frames:int):
+    def __init__(self, mode:str, num_enc_layers:int, num_frames=2):
         super().__init__()
         # feature extraction taken from first few layers of VGG 16
         self.conv_preproc = nn.Sequential(
@@ -87,7 +87,7 @@ class Encoder(nn.Module):
         return x
 
 class Decoder(nn.Module):
-    def __init__(self, mode:str, num_enc_layers:int, num_frames):
+    def __init__(self, mode:str, num_enc_layers:int, num_frames=2):
         super().__init__()
         self.upsample = [
             nn.Sequential(nn.ConvTranspose2d(3,8,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
