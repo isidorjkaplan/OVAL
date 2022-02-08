@@ -1,5 +1,5 @@
-from collections import namedtuple
-from tkinter import X
+#from collections import namedtuple
+#from tkinter import X
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,15 +12,22 @@ from ConvLSTM import ConvLSTMCell
 
 # Mode = ['Cutoff'] TODO, maybe also try dropout version
 # Enc_Sizes = Array of possible encoding size choices
-class Autoencoder():
+class Autoencoder(nn.Module):
     def __init__(self, num_enc_layers):
+        super(Autoencoder, self).__init__()
         self.encoder = Encoder("default", num_enc_layers)
         self.decoder = Decoder("default", num_enc_layers)
 
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.decoder(x)
+
+        return x
+
 
 class Encoder(nn.Module):
-    def __init__(self, mode:str, num_enc_layers:int, num_frames:int, input_dim):
-        super().__init__()
+    def __init__(self, mode:str, num_enc_layers:int):
+        super(Encoder, self).__init__()
         # feature extraction taken from first few layers of VGG 16
         self.conv_preproc = nn.Sequential(
             nn.Conv2d(3,16,kernel_size=(3,3),padding=1),
@@ -35,12 +42,12 @@ class Encoder(nn.Module):
 
         # ConvLSTM
         self.encoder_1_convlstm = ConvLSTMCell(input_dim=3,
-                                               hidden_dim=num_frames,
+                                               hidden_dim=2,
                                                kernel_size=(3, 3),
                                                bias=True)
 
-        self.encoder_2_convlstm = ConvLSTMCell(input_dim=num_frames,
-                                               hidden_dim=num_frames,
+        self.encoder_2_convlstm = ConvLSTMCell(input_dim=2,
+                                               hidden_dim=2,
                                                kernel_size=(3, 3),
                                                bias=True)
 
@@ -61,13 +68,13 @@ class Encoder(nn.Module):
     # OUTPUTS:
     #    encoded image: The actual encoded image to the proper size
     #    hidden:        Also returns the hidden state for future use if needed
-    def forward(self, x, enc_level:int, hidden=None, future_seq=0):
+    def forward(self, x, hidden=None, future_seq=0):
         """
         input: Tensor of shape (batch, time, channel, height, width)        #   batch, time, channel, height, width
         """
         # find size of different input dimensions
         # b, seq_len, _, h, w = x.size()
-        assert enc_level < self.num_enc_layers
+        #assert enc_level < self.num_enc_layers
 
         ## begin feature extraction
         x = self.conv_preproc(x)
@@ -82,13 +89,13 @@ class Encoder(nn.Module):
                                                 cur_state=[h_t2, c_t2])  # we could concat to provide skip conn here
         x = h_t2
         # begin downsampling with variable encoding
-        for i in range(enc_level):
+        for i in range(self.num_enc_layers):
             x = self.downsampling[i](x)
         return x
 
 class Decoder(nn.Module):
-    def __init__(self, mode:str, num_enc_layers:int, num_frames):
-        super().__init__()
+    def __init__(self, mode:str, num_enc_layers:int):
+        super(Decoder, self).__init__()
         self.upsample = [
             nn.Sequential(nn.ConvTranspose2d(3,8,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
             nn.Sequential(nn.ConvTranspose2d(8,16,kernel_size=(3,3), padding=1), nn.ReLU(True)),
@@ -97,12 +104,12 @@ class Decoder(nn.Module):
             nn.Sequential(nn.ConvTranspose2d(64,3,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True))
         ]
         self.decoder_1_convlstm = ConvLSTMCell(input_dim=3,  # nf + 1
-                                               hidden_dim=num_frames,
+                                               hidden_dim=2,
                                                kernel_size=(3, 3),
                                                bias=True)
 
-        self.decoder_2_convlstm = ConvLSTMCell(input_dim=num_frames,
-                                               hidden_dim=num_frames,
+        self.decoder_2_convlstm = ConvLSTMCell(input_dim=2,
+                                               hidden_dim=2,
                                                kernel_size=(3, 3),
                                                bias=True)
 
