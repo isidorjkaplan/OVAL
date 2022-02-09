@@ -22,8 +22,6 @@ from model import Autoencoder, Encoder, Decoder
 def linear_reward_func(enc_size, loss):
     return None #Do not use this yet
 
-
-
 def print_thread(args, data_q, model):
     board = "runs/online/%d" % time.time()
     writer = SummaryWriter(board)
@@ -78,7 +76,7 @@ def main_online():
     #shutil.rmtree(board)
     loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss}[args.loss]
     device = 'cuda' if args.cuda else 'cpu'
-    enc_bytes = {16:torch.float16, 32:torch.float32, 64:torch.float64}[args.enc_bytes];
+    enc_bytes = {16:torch.float16, 32:torch.float32, 64:torch.float64}[args.enc_bytes]
     sender = arch.Sender(model, linear_reward_func, data_q, enc_bytes=enc_bytes, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)
 
     if args.video is not None:

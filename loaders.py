@@ -29,7 +29,7 @@ class CameraVideoSimulator():
     def next_frame(self):
         ret, frame = self.stream.read()
         if not ret:#Check for error
-            return None
+            return StopIteration()
 
         frame = torch.FloatTensor(frame).permute(2, 1, 0)/255.0
         frame = frame.view(1, 3, self.frameWidth, self.frameHeight)
@@ -93,7 +93,7 @@ class VideoSimulator():
     def next_frame(self):
         #Do all the reading and processing of the frame
         if self.num_frames_read >= self.frameCount and not self.repeat:
-            return None
+            return StopIteration()
 
         frame = self.get_frame(self.num_frames_read)
         self.num_frames_read+=1
@@ -127,7 +127,7 @@ class VideoLoader():
 
     def __next__(self):
         if self.num_frames_read == self.frameCount:
-            return None
+            return StopIteration()
 
         buf = np.empty((self.batch_size, self.frameHeight, self.frameWidth, 3), np.dtype('uint8'))
         fc = 0
@@ -170,7 +170,7 @@ class VideoDatasetLoader():
 
     def __next__(self):
         if len(self.video_loaders) == 0:
-            return None #No videos left for this epoch, must reset
+            return StopIteration() #No videos left for this epoch, must reset
 
         loader_num = self.last_video % len(self.video_loaders)
         video_loader = self.video_loaders[loader_num]
