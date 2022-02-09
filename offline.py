@@ -18,6 +18,7 @@ import glob, os
 from loaders import VideoDatasetLoader
 
 
+
 #This function will parse terminal inputs from the user and then perform offline training
 def main_offline():
     parser = argparse.ArgumentParser(description='Arguments for Online Training')
@@ -80,6 +81,11 @@ def main_offline():
         for data in train_loader:
             if data is None:
                 break
+
+            if stop_time is not None and time.time() > stop_end:
+                print("Time ran out. Stopping.")
+                return
+
             video_num, frames = data
             frames = frames.to(device)
             frames_out = model(frames)
@@ -122,6 +128,7 @@ def main_offline():
             print("Saving model: loss_v=%g", valid_loss)
             best_val_loss = valid_loss
             model.save_model()
+
 
         writer.add_scalar("Epochs/train_loss", epoch_loss, epoch)
         writer.add_scalar("Epochs/valid_loss", valid_loss, epoch)
