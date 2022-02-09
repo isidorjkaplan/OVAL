@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import numpy
 import torch
+import glob, os
 
 #Simulates a file as being a live video stream returning rate frames per second
 class CameraVideoSimulator():
@@ -29,7 +30,7 @@ class CameraVideoSimulator():
     def next_frame(self):
         ret, frame = self.stream.read()
         if not ret:#Check for error
-            return StopIteration()
+            return None
 
         frame = torch.FloatTensor(frame).permute(2, 1, 0)/255.0
         frame = frame.view(1, 3, self.frameWidth, self.frameHeight)
@@ -51,31 +52,13 @@ class CameraVideoSimulator():
 #Simulates a file as being a live video stream returning rate frames per second
 class VideoSimulator():
     #Opens the file and initilizes the video
-    def __init__(self, filepath, rate=30, size=None, repeat=False):
-        cap = cv2.VideoCapture(filepath)
-        self.frameCount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        self.frameWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.frameHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        print("Loading Video=%s with frames=%d and size=(%d,%d)" % (filepath, self.frameCount, self.frameWidth, self.frameHeight))
-        #Parameters for frame reading
-        self.num_frames_read = 0
+    def __init__(self, filepath, rate=30, video_size=None, repeat=False):
         self.last_frame_time = time.time()
         self.time_between_frames = 1.0/rate
         self.repeat = repeat
-
-        buf = np.empty((self.frameCount, self.frameHeight, self.frameWidth, 3), np.dtype('uint8'))
-        fc = 0
-        ret = True
-        while (fc < self.frameCount  and ret):
-            ret, buf[fc] = cap.read()
-            if size is not None: #Optionally resize to specific size
-                buf[fc] = cv2.resize(buf[fc], size, interpolation = cv2.INTER_LINEAR)
-            fc += 1
-        cap.release()
-
-        self.buffer = buf #save buffer
-        #self.frames = torch.FloatTensor(buf)/255
-        #self.frames = self.frames.permute(0, 3, 1, 2)#Make channel major
+        self.filepath = filepath
+        self.video_size = video_size
+        self.video_loader = VideoLoader(self.filepath, 1, video_size=self.video_size)
 
     def __iter__(self):
         return self
@@ -83,19 +66,21 @@ class VideoSimulator():
     def __next__(self):
         return self.next_frame()
 
-    def get_frame(self, i):
-        assert self.repeat or i < self.frameCount
-        frame = torch.FloatTensor(self.buffer[i % self.frameCount]).permute(2, 1, 0)/255.0
-        frame = frame.view(1, 3, self.frameWidth, self.frameHeight)
-        return frame
-
-    
     def next_frame(self):
         #Do all the reading and processing of the frame
         if self.num_frames_read >= self.frameCount and not self.repeat:
-            return StopIteration()
+            return None
 
-        frame = self.get_frame(self.num_frames_read)
+        frame = next(self.video_loader)
+        if frame is None: #Restart video loader
+            if not self.repeat:
+                return None
+            print("VideoSimulator: Loader is over. Restarting new video loader.")
+            del self.video_loader
+            self.video_loader = VideoLoader(self.filepath, 1, video_size=self.video_size)
+            frame = next(self.video_loader)
+
+
         self.num_frames_read+=1
         #Sleep so that we ensure appropriate frame rate, only return at the proper time
         now = time.time()
@@ -110,7 +95,7 @@ class VideoSimulator():
 
 class VideoLoader():
     #Opens the file and initilizes the video
-    def __init__(self, vid_id, filepath, batch_size, video_size=None):
+    def __init__(self, filepath, batch_size, video_id=None, video_size=None):
         self.cap = cv2.VideoCapture(filepath)
         self.frameCount = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.frameWidth = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -118,7 +103,7 @@ class VideoLoader():
 
         self.batch_size = batch_size
         self.video_size = video_size
-        self.vid_id = vid_id
+        self.vid_id = video_id
         self.num_frames_read = 0
         #print("Loading Video=%s with frames=%d and size=(%d,%d)" % (filepath, self.frameCount, self.frameWidth, self.frameHeight))
 
@@ -127,7 +112,7 @@ class VideoLoader():
 
     def __next__(self):
         if self.num_frames_read == self.frameCount:
-            return StopIteration()
+            return None
 
         buf = np.empty((self.batch_size, self.frameHeight, self.frameWidth, 3), np.dtype('uint8'))
         fc = 0
@@ -165,12 +150,12 @@ class VideoDatasetLoader():
     def reset(self):
         if self.video_loaders is not None:
             del self.video_loaders
-        self.video_loaders = [VideoLoader(vid_id, filepath, self.batch_size)  for vid_id,filepath in enumerate(glob.glob(os.path.join(self.video_directory, "*.mp4")))]
+        self.video_loaders = [VideoLoader(filepath, self.batch_size, video_id=vid_id)  for vid_id,filepath in enumerate(glob.glob(os.path.join(self.video_directory, "*.mp4")))]
         print("Reset video loader dataset with %d Videos" % len(self.video_loaders))
 
     def __next__(self):
         if len(self.video_loaders) == 0:
-            return StopIteration() #No videos left for this epoch, must reset
+            return None #No videos left for this epoch, must reset
 
         loader_num = self.last_video % len(self.video_loaders)
         video_loader = self.video_loaders[loader_num]

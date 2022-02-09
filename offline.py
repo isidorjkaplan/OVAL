@@ -22,11 +22,11 @@ from loaders import VideoDatasetLoader
 def main_offline():
     parser = argparse.ArgumentParser(description='Arguments for Online Training')
     parser.add_argument('--video_folder', default="data/videos", help='Path to a folder of videos to train on')
-    parser.add_argument('--lr', type=float, default=0.01, help='The learning rate for the model')
+    parser.add_argument('--lr', type=float, default=0.001, help='The learning rate for the model')
     parser.add_argument('--stop', type=float, default=None, help='Time after which we stop training, done or not')
     parser.add_argument('--epochs', type=int, default=None, help='Number of epochs after which we stop training. ')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
-    parser.add_argument('--batch_size', type=int, default=10, help='Number of frames per training batch')
+    parser.add_argument('--batch_size', type=int, default=30, help='Number of frames per training batch')
     parser.add_argument('--loss', default='mse', help='Loss function:  {mae, mse} ')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
     parser.add_argument("--save_every", type=int, default=100, help="Save a copy of the model every N itterations")
@@ -77,7 +77,10 @@ def main_offline():
         valid_loader.reset()
         #Training loop
         epoch_loss = []
-        for video_num, frames in train_loader:
+        for data in train_loader:
+            if data is None:
+                break
+            video_num, frames = data
             frames = frames.to(device)
             frames_out = model(frames)
             #Output does not exactly match size, truncate so that they are same size for loss. 
@@ -101,9 +104,15 @@ def main_offline():
 
         #Validation Tracking
         valid_loss = []
-        for video_nun, frames in valid_loader:
+        for data in valid_loader:
+            if data is None:
+                break
+            video_num, frames = data
+            
             frames = frames.to(device)
             frames_out = model(frames)
+
+            frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
             loss = loss_fn(frames, frames_out)
 
             valid_loss.append(loss.item())
