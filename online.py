@@ -108,7 +108,7 @@ def print_thread(args, data_q, model):
 # It will setup the model as well as the simulator settings and tensorboard and all that
 # It will then pass control to the simulator which will start all it's respective threads and begin running
 def main_online():
-    
+    #cd "C:/Users/isido/OneDrive/Files/School/Year 3/Winter 2022/APS360/OVAL"
     parser = argparse.ArgumentParser(description='Arguments for Online Training')
     parser.add_argument('--video', type=None, help='The path to the video to load (from current directory). If this is empty then uses the video camera instead.')
     parser.add_argument('--lr', type=float, default=0.01, help='The learning rate for the model')
