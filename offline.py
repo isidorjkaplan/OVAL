@@ -101,7 +101,9 @@ if __name__ == "__main__":
     while (videoNotEnd):
         print(toyCounter)
         img, videoNotEnd = next(loaded)
-        img = pd.DataFrame(img)
+        img = torch.from_numpy(img)
+        img = torch.transpose(img, 1, 3)
+        img = img.float()
         if (videoNotEnd):
             img_proc = model(img)
             print(img_proc.shape)
