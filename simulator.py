@@ -25,7 +25,7 @@ from torch.utils.tensorboard import SummaryWriter
 # The sender thinks it is sending to a real network with real decoders, but we intercept and simply calculate its test performance here
 # In future tests, we use the same sender without modification, but instead we will have many and maintain the federated model in env
 class SingleSenderSimulator():
-    def __init__(self, sender, board, server=None):
+    def __init__(self, sender, board, server=None, live_video=False):
         #Sender does all the heavy lifting on training, we are just an interface for sender and the real world and testing
         self.sender = sender
         #A tensorboard which we will plot statitsics about the accuracy and all that of our sender
@@ -35,7 +35,7 @@ class SingleSenderSimulator():
         #We will just discard the messages once we are done without sending them anywhere, just look at them for testing evaluation
         #Later on we will modify this to support a "server" where we will actually forward the broadcasts
         self.server = server
-
+        self.live_video = live_video
         #Live decoder, we keep a copy here in the simulator since we dont know what is happening internal to sender
         self.decoder = sender.live_model.clone().decoder
         self.done = Value(ctypes.c_bool)
@@ -145,7 +145,7 @@ class SingleSenderSimulator():
             dec_np_frame = np.uint8(255*dec_np_frame)
             if out_file is not None:
                 out.writeFrame(dec_np_frame)
-            if frame_num % 30 == 0:
+            if self.live_video and frame_num % 30 == 0:
                 cv2.imshow("Decoded", dec_np_frame)
                 cv2.imshow("Real", frame[0].permute(2, 1, 0).numpy())
                 cv2.waitKey(1)

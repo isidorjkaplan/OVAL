@@ -123,6 +123,7 @@ def main_online():
     parser.add_argument('--out', type=str, default=None, help='The path to save the decoded video for inspection')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
     parser.add_argument("--save_model", default=None, help="File to save the model")
+    parser.add_argument("--live_video", action="store_true", default=False, help="Turns on the real/decoded live video feed")
 
     args = parser.parse_args()
 
@@ -149,7 +150,7 @@ def main_online():
         video_sim = sim.VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps)#, size=(340, 256))
     else:
         video_sim = sim.CameraVideoSimulator(rate=args.fps)
-    local_sim = sim.SingleSenderSimulator(sender, data_q)
+    local_sim = sim.SingleSenderSimulator(sender, data_q, live_video=args.live_video)
     local_sim.start(video_sim, args.stop, args.out, loss_fn)
     p.kill()
     p.join()
