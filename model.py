@@ -33,11 +33,10 @@ class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv_net = nn.Sequential(
-            nn.Conv2d(3, 5,kernel_size=2,stride=2), 
+            nn.Conv2d(3, 5,kernel_size=2,stride=1), 
             nn.ReLU(inplace=True),
-            nn.Conv2d(5, 8,kernel_size=4, stride=2), 
+            nn.Conv2d(5, 8,kernel_size=4, stride=1), 
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),
             nn.Conv2d(8,6,kernel_size=8,stride=1),
             nn.ReLU(inplace=True),
             nn.Conv2d(6,5,kernel_size=2,padding=1)
@@ -52,11 +51,11 @@ class Decoder(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv_net_t = nn.Sequential(
-            nn.ConvTranspose2d(5,6,kernel_size=2,stride=2),
+            nn.ConvTranspose2d(5,6,kernel_size=2,stride=1),
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(6,8,kernel_size=8,stride=2),
+            nn.ConvTranspose2d(6,8,kernel_size=8,stride=1),
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(8, 5,kernel_size=4, stride=2), 
+            nn.ConvTranspose2d(8, 5,kernel_size=4, stride=1), 
             nn.ReLU(inplace=True),
             nn.ConvTranspose2d(5,3,kernel_size=2,stride=1)
         )

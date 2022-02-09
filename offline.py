@@ -94,6 +94,7 @@ def main_offline():
             frames_out = model(frames)
             #Output does not exactly match size, truncate so that they are same size for loss. 
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
+            frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
             #Run the loss function
             loss = loss_fn(frames, frames_out)
 
@@ -122,6 +123,8 @@ def main_offline():
             frames_out = model(frames)
 
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
+            frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
+            
             loss = loss_fn(frames, frames_out)
 
             valid_loss.append(loss.item())

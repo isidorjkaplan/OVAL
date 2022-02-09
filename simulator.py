@@ -133,7 +133,10 @@ class SingleSenderSimulator():
             num_bytes += encoded.numel()*type_sizes[encoded.dtype] #Check what type was used on network
             encoded = encoded.type(frame.dtype) #We can now upscale its type back to 32 bit for evaluation
             dec_frame = self.decoder(encoded).detach()
+            #Due to some funny effects not always the same size so truncate to the smaller one
             frame = frame[:,:,:dec_frame.shape[2], :dec_frame.shape[3]] #Due to conv fringing, not same size. Almost same size. Just cut
+            dec_frame = dec_frame[:,:,:frame.shape[2],:frame.shape[3]]
+            #Calculat euncompressed bytes
             uncomp_bytes = frame.shape[1]*frame.shape[2]*frame.shape[3]*1 #For uncompressed, 1 byte per channel * C*L*W is total size
             #frame = self.video.get_frame(frame_num)
             error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
