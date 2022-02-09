@@ -130,7 +130,8 @@ def main_offline():
     optim = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     #Create summary writer and print bookkeeping items
-    writer = SummaryWriter("runs/offline/%d" % time.time())
+    start_time = time.time()
+    writer = SummaryWriter("runs/offline/%d" % start_time)
     writer.add_text("Model/Encoder", str(model.encoder).replace("\n", "  \n"))
     writer.add_text("Model/Decoder", str(model.decoder).replace("\n", "  \n"))
     arg_str = ""
@@ -142,6 +143,7 @@ def main_offline():
     valid_loader = VideoDatasetLoader(os.path.join(args.video_folder, "valid"), args.batch_size)
 
     #Main training loop
+    best_val_loss = float('inf')
     iter_num = 0
     for epoch in epochs_iter:
         train_loader.reset()
@@ -176,6 +178,11 @@ def main_offline():
 
             valid_loss.append(loss.item())
         valid_loss = np.mean(valid_loss)
+
+        if valid_loss < best_val_loss:
+            print("Saving model: loss_v=%g", valid_loss)
+            best_val_loss = valid_loss
+            model.save_model()
 
         writer.add_scalar("Epochs/train_loss", epoch_loss, epoch)
         writer.add_scalar("Epochs/valid_loss", valid_loss, epoch)
