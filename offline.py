@@ -21,6 +21,8 @@ from loaders import VideoDatasetLoader
 
 #This function will parse terminal inputs from the user and then perform offline training
 def main_offline():
+    #cd "C:/Users/isido/OneDrive/Files/School/Year 3/Winter 2022/APS360/OVAL"
+    #python3 offline.py --cuda --stop=160 --save_model=data/models/offline.pt --max_frames=100
     parser = argparse.ArgumentParser(description='Arguments for Online Training')
     parser.add_argument('--video_folder', default="data/videos", help='Path to a folder of videos to train on')
     parser.add_argument('--lr', type=float, default=0.001, help='The learning rate for the model')
@@ -30,7 +32,7 @@ def main_offline():
     parser.add_argument('--batch_size', type=int, default=30, help='Number of frames per training batch')
     parser.add_argument('--loss', default='mse', help='Loss function:  {mae, mse} ')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
-    parser.add_argument("--save_every", type=int, default=100, help="Save a copy of the model every N itterations")
+    #parser.add_argument("--save_every", type=int, default=100, help="Save a copy of the model every N itterations")
     parser.add_argument("--save_model", default="data/models/offline.pt", help="File to save the model")
     parser.add_argument("--max_frames", default=None, type=int, help="If specified, it will clip all videos to this many frames")
     args = parser.parse_args()
@@ -53,7 +55,8 @@ def main_offline():
 
     batch_size = args.batch_size
     epochs_iter = range(args.epochs) if args.epochs is not None else itertools.count(start=0)
-    stop_time = (time.time() + args.stop) if args.stop is not None else None
+    if args.stop is not None:
+        stop_time = time.time() + args.stop
 
     #Construct the optimizer
     optim = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -61,8 +64,7 @@ def main_offline():
     #Create summary writer and print bookkeeping items
     start_time = time.time()
     writer = SummaryWriter("runs/offline/%d" % start_time)
-    writer.add_text("Model/Encoder", str(model.encoder).replace("\n", "  \n"))
-    writer.add_text("Model/Decoder", str(model.decoder).replace("\n", "  \n"))
+    writer.add_text("Model", str(model).replace("\n", "  \n"))
     arg_str = ""
     for key in vars(args):
         arg_str = "%s**%s**: %s  \n" % (arg_str, key, str(vars(args)[key])) 
@@ -83,7 +85,7 @@ def main_offline():
             if data is None:
                 break
 
-            if stop_time is not None and time.time() > stop_end:
+            if args.stop is not None and time.time() > stop_time:
                 print("Time ran out. Stopping.")
                 return
 
@@ -103,9 +105,9 @@ def main_offline():
             epoch_loss.append(loss.item())
             writer.add_scalar("Iter/train_loss", loss.item(), iter_num)
 
-            if iter_num % args.save_every == 0:
-                model.save_model()
-            print("%d: loss_t=%g" % (iter_num, loss.item()))
+            #if iter_num % args.save_every == 0:
+            #    model.save_model()
+            print("%d: Frames=%d/%d=%d, loss_t=%g" % (iter_num, train_loader.num_frames_read, train_loader.total_num_frames, 100*train_loader.num_frames_read/train_loader.total_num_frames, loss.item()))
             iter_num+=1
         epoch_loss = np.mean(epoch_loss)
 
@@ -133,6 +135,7 @@ def main_offline():
 
         writer.add_scalar("Epochs/train_loss", epoch_loss, epoch)
         writer.add_scalar("Epochs/valid_loss", valid_loss, epoch)
+        print("Epoch %d: loss_t=%g, loss_v=%g" % (epoch, epoch_loss, valid_loss))
 
     pass
 

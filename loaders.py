@@ -146,7 +146,9 @@ class VideoDatasetLoader():
         self.video_directory = directory
         self.video_loaders = None
         self.batch_size = batch_size
-        self.max_frames = None
+        self.max_frames = max_frames
+
+
 
     def __iter__(self):
         return self
@@ -155,6 +157,9 @@ class VideoDatasetLoader():
         if self.video_loaders is not None:
             del self.video_loaders
         self.video_loaders = [VideoLoader(filepath, self.batch_size, video_id=vid_id, max_frames=self.max_frames)  for vid_id,filepath in enumerate(glob.glob(os.path.join(self.video_directory, "*.mp4")))]
+        
+        self.num_frames_read = 0
+        self.total_num_frames = sum([loader.frameCount for loader in self.video_loaders])
         print("Reset video loader dataset with %d Videos" % len(self.video_loaders))
 
     def __next__(self):
@@ -167,5 +172,7 @@ class VideoDatasetLoader():
         frames, done = next(video_loader)
         if done:
             del self.video_loaders[loader_num]
+
+        self.num_frames_read += frames.shape[0]
         
         return vid_id, frames
