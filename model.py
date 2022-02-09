@@ -1,87 +1,64 @@
-from collections import namedtuple
 
-#Autoencoder = namedtuple("Autoencoder", "encoder decoder")
+#TEMPORRY, WILL REPLACE WITH RYANS AUTOENCODER MODEL LATER
+class Autoencoder(nn.Module):
+    def __init__(self, save_path=None):
+        super().__init__()
+        self.encoder = Encoder()
+        self.decoder = Decoder()
+        self.save_path = save_path
 
-# Mode = ['Cutoff'] TODO, maybe also try dropout version
-# Enc_Sizes = Array of possible encoding size choices
-class Autoencoder():
-    def __init__(self, num_enc_layers):
-        self.encoder = Encoder(mode, num_enc_layers)
-        self.decoder = Decoder(mode, num_enc_layers)
+    def clone(self):
+        ae = Autoencoder()
+        ae.encoder.load_state_dict(self.encoder.state_dict())
+        ae.decoder.load_state_dict(self.decoder.state_dict())
+        return ae
+
+    def save_model(self):
+        if self.save_path is not None:
+            torch.save(self.state_dict(), self.save_path)
+
+    def forward(self, x):
+        return self.decoder(self.encoder(x))
+
+    def to(self, device):
+        self.encoder.to(device)
+        self.decoder.to(device)
+
+    #TODO load_state_dict
     
-
 class Encoder(nn.Module):
-    def __init__(self, mode, num_enc_layers):
+    def __init__(self):
         super().__init__()
-        #Define convolutional layers for preprocessing
-        self.conv_net = None # TODO
-        
-        #Define an RNN to hold the memory state, this is based on the convolutional features
-        self.rnn = None # TODO
+        self.conv_net = nn.Sequential(
+            nn.Conv2d(3, 5,kernel_size=2,stride=2), 
+            nn.ReLU(inplace=True),
+            nn.Conv2d(5, 8,kernel_size=4, stride=2), 
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(8,6,kernel_size=8,stride=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(6,5,kernel_size=2,padding=1)
+        )
 
-        #Define the autoencoder layers that reduce size down to enc_sizes[0]
-        # This is some more potentially convolutional, not sure, preprocessing
-        self.num_enc_layers = num_enc_layers #Save for use in forward
-        #TODO Make sure to use CONVOLUTIONAL encoding layers, this will require some clever work
-        self.layers = [None] #Todo, layers, define according to some formula 
-        
         pass
-    
-    #Takes in features as well as the encoding size to use this time
-    # INPUTS: 
-    #    x = Input Image
-    #    enc_size = Current encoding size to use
-    #    hidden = Initial hidden state for LSTM. In training not used since we train on batch but used for evaluation
-    # OUTPUTS:
-    #    encoded image: The actual encoded image to the proper size
-    #    hidden:        Also returns the hidden state for future use if needed
-    def forward(self, x, enc_level, hidden=None):
-        assert env_level < self.num_enc_layers
-        #Extract convolutional features
-        x = self.conv_net(x)
-        #Perform RNN on feature extraction, adds some context
-        x, hidden = self.rnn(x, hidden)
-        #Peform autoencoder downscaling to encoded version
-        for i in range(0, enc_level): #Only run the first enc_level encoding layers
-            x = F.relu(self.layers[i](x))
-            
-        return x, hidden
 
+    def forward(self, x):
+        return self.conv_net(x)
+        
 class Decoder(nn.Module):
-    def __init__(self, mode, num_enc_layers):
+    def __init__(self):
         super().__init__()
-        #Define deconvolutional layers for reconstruction
-        self.conv_net = None # TODO
-        
-        #Define an RNN to hold the memory state, this is based on the convolutional features
-        self.rnn = None # TODO
-
-        #Define the autoencoder layers that increase size to enc_sizes[-1]
-        # This is some more potentially convolutional, not sure, preprocessing
-        self.num_enc_layers = num_enc_layers
-        self.layers = [None] #Todo, layers according to some formula
-
+        self.conv_net_t = nn.Sequential(
+            nn.ConvTranspose2d(5,6,kernel_size=2,stride=2),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(6,8,kernel_size=8,stride=2),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(8, 5,kernel_size=4, stride=2), 
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(5,3,kernel_size=2,stride=1)
+        )
         pass
-    
-     #Takes in encoded image as well as context / history
-    # INPUTS: 
-    #    x = Encoded input image
-    #    hidden = Initial hidden state for LSTM. In training not used since we train on batch but used for evaluation
-    # OUTPUTS:
-    #    decoded image: The actual decoded image, reconstructed
-    #    hidden:        Also returns the hidden state for future use if needed
-    def forward(self, x, hidden=None):
-        #Extract from x which encoding layer was the last used, we then use that to reverse it here
-        enc_level = None #TODO, extract from "x" to figure out its size
-        #Perform upscaling from whatever initial size was, 
-        #we don't use the first enc_level layers since that is where we terminated encoding
-        for i, size in range(enc_level, self.num_enc_layers):
-            x = F.relu(self.layers[i](x))
-        #It is now been upscaled to appropriate size, call RNN to add context
-        x, hidden = self.rnn(x, hidden)
-        #Perform final convolutional inverse to get original image
-        x = self.conv_net(x)
-        #Return
-        return x, hidden
 
-        pass
+    def forward(self, x):
+        x = self.conv_net_t(x)
+        return x
