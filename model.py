@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
+import torch
 
 #TEMPORRY, WILL REPLACE WITH RYANS AUTOENCODER MODEL LATER
 class Autoencoder(nn.Module):

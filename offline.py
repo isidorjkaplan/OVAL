@@ -103,7 +103,8 @@ def main_offline():
     parser.add_argument('--batch_size', type=int, default=10, help='Number of frames per training batch')
     parser.add_argument('--loss', default='mse', help='Loss function:  {mae, mse} ')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
-    parser.add_argument("--save_model", default=None, help="File to save the model")
+    parser.add_argument("--save_every", type=int, default=100, help="Save a copy of the model every N itterations")
+    parser.add_argument("--save_model", default="data/models/offline.pt", help="File to save the model")
     args = parser.parse_args()
 
     #Select the device
@@ -165,6 +166,9 @@ def main_offline():
             #Bookkeeping items
             epoch_loss.append(loss.item())
             writer.add_scalar("Iter/train_loss", loss.item(), iter_num)
+
+            if iter_num % args.save_every == 0:
+                model.save_model()
             print("%d: loss_t=%g" % (iter_num, loss.item()))
             iter_num+=1
         epoch_loss = np.mean(epoch_loss)
