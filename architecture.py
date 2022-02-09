@@ -96,7 +96,10 @@ class Sender():
 
         self.train_model.to(self.train_device)
         dec_frame = self.train_model.decoder(self.train_model.encoder(data))
+        #Truncate to proper size
         data_mse = data[:,:,:dec_frame.shape[2], :dec_frame.shape[3]] #Due to conv fringing, not same size. Almost same size. Just cut
+        dec_frame = dec_frame[:,:,:data_mse.shape[2], :data_mse.shape[3]]
+        
         #print("%s -> %s" % (str(data.shape), str(data_mse.shape)))
         loss_train = self.loss_fn(data_mse, dec_frame) #Compute the loss
         self.board.put(("sender/loss_train (batch)", loss_train.detach().cpu().item(), self.iter))

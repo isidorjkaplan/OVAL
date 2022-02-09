@@ -93,7 +93,7 @@ class SingleSenderSimulator():
         start = time.time()
         if runtime is not None:
             stop_time = start + runtime
-        for i,frame in enumerate(video):
+        for i,(frame,done) in enumerate(video):
             if frame is None:
                 break
             if runtime is not None and time.time() > stop_time:
@@ -133,7 +133,10 @@ class SingleSenderSimulator():
             num_bytes += encoded.numel()*type_sizes[encoded.dtype] #Check what type was used on network
             encoded = encoded.type(frame.dtype) #We can now upscale its type back to 32 bit for evaluation
             dec_frame = self.decoder(encoded).detach()
+            #Due to some funny effects not always the same size so truncate to the smaller one
             frame = frame[:,:,:dec_frame.shape[2], :dec_frame.shape[3]] #Due to conv fringing, not same size. Almost same size. Just cut
+            dec_frame = dec_frame[:,:,:frame.shape[2],:frame.shape[3]]
+            #Calculat euncompressed bytes
             uncomp_bytes = frame.shape[1]*frame.shape[2]*frame.shape[3]*1 #For uncompressed, 1 byte per channel * C*L*W is total size
             #frame = self.video.get_frame(frame_num)
             error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
@@ -158,111 +161,6 @@ class SingleSenderSimulator():
         print("Recieve thread terminated")
         pass
     #PRIVATE FUNCTIONS
-
-#Simulates a file as being a live video stream returning rate frames per second
-class CameraVideoSimulator():
-    #Opens the file and initilizes the video
-    def __init__(self, rate=30, size=None):
-
-        #Parameters for frame reading
-        self.num_frames_read = 0
-        self.last_frame_time = time.time()
-        self.time_between_frames = 1.0/rate
-
-        self.stream = cv2.VideoCapture(0)
-        self.frameWidth = int(self.stream.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.frameHeight = int(self.stream.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        return self.next_frame()
-
-
-    
-    def next_frame(self):
-        ret, frame = self.stream.read()
-        if not ret:#Check for error
-            return None
-
-        frame = torch.FloatTensor(frame).permute(2, 1, 0)/255.0
-        frame = frame.view(1, 3, self.frameWidth, self.frameHeight)
-
-        #Sleep so that we ensure appropriate frame rate, only return at the proper time
-        now = time.time()
-        sleep_time = self.time_between_frames - (now - self.last_frame_time)
-        if sleep_time > 0:
-            time.sleep(sleep_time)
-        #If negative this should have arrived already and we are behind so just go so time gets earlier
-        self.last_frame_time = now + sleep_time
-        #Return value
-        return frame
-
-    def __del__(self):
-        self.stream.release()
-
-
-#Simulates a file as being a live video stream returning rate frames per second
-class VideoSimulator():
-    #Opens the file and initilizes the video
-    def __init__(self, filepath, rate=30, size=None, repeat=False):
-        cap = cv2.VideoCapture(filepath)
-        self.frameCount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        self.frameWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.frameHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        print("Loading Video=%s with frames=%d and size=(%d,%d)" % (filepath, self.frameCount, self.frameWidth, self.frameHeight))
-        #Parameters for frame reading
-        self.num_frames_read = 0
-        self.last_frame_time = time.time()
-        self.time_between_frames = 1.0/rate
-        self.repeat = repeat
-
-        buf = np.empty((self.frameCount, self.frameHeight, self.frameWidth, 3), np.dtype('uint8'))
-        fc = 0
-        ret = True
-        while (fc < self.frameCount  and ret):
-            ret, buf[fc] = cap.read()
-            if size is not None: #Optionally resize to specific size
-                buf[fc] = cv2.resize(buf[fc], size, interpolation = cv2.INTER_LINEAR)
-            fc += 1
-        cap.release()
-
-        self.buffer = buf #save buffer
-        #self.frames = torch.FloatTensor(buf)/255
-        #self.frames = self.frames.permute(0, 3, 1, 2)#Make channel major
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        return self.next_frame()
-
-    def get_frame(self, i):
-        assert self.repeat or i < self.frameCount
-        frame = torch.FloatTensor(self.buffer[i % self.frameCount]).permute(2, 1, 0)/255.0
-        frame = frame.view(1, 3, self.frameWidth, self.frameHeight)
-        return frame
-
-    
-    def next_frame(self):
-        #Do all the reading and processing of the frame
-        if self.num_frames_read >= self.frameCount and not self.repeat:
-            return None
-
-        frame = self.get_frame(self.num_frames_read)
-        self.num_frames_read+=1
-        #Sleep so that we ensure appropriate frame rate, only return at the proper time
-        now = time.time()
-        sleep_time = self.time_between_frames - (now - self.last_frame_time)
-        if sleep_time > 0:
-            time.sleep(sleep_time)
-        #If negative this should have arrived already and we are behind so just go so time gets earlier
-        self.last_frame_time = now + sleep_time
-        #Return value
-        return frame
-
 
 
 #There will be one server. It will take input from each client and then broadcast it to each other client

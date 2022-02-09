@@ -14,82 +14,16 @@ import shutil
 import os
 import time
 import argparse
+from loaders import VideoSimulator, CameraVideoSimulator
 
 from torch.utils.tensorboard import SummaryWriter
-
-
-
-#TEMPORRY, WILL REPLACE WITH RYANS AUTOENCODER MODEL LATER
-class Autoencoder(nn.Module):
-    def __init__(self, save_path=None):
-        super().__init__()
-        self.encoder = Encoder()
-        self.decoder = Decoder()
-        self.save_path = save_path
-
-    def clone(self):
-        ae = Autoencoder()
-        ae.encoder.load_state_dict(self.encoder.state_dict())
-        ae.decoder.load_state_dict(self.decoder.state_dict())
-        return ae
-
-    def save_model(self):
-        if self.save_path is not None:
-            torch.save(self.state_dict(), self.save_path)
-
-    def forward(self, x):
-        return self.decoder(self.encoder(x))
-
-    def to(self, device):
-        self.encoder.to(device)
-        self.decoder.to(device)
-
-    #TODO load_state_dict
-    
-class Encoder(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv_net = nn.Sequential(
-            nn.Conv2d(3, 5,kernel_size=2,stride=2), 
-            nn.ReLU(inplace=True),
-            nn.Conv2d(5, 8,kernel_size=4, stride=2), 
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2, 2),
-            nn.Conv2d(8,6,kernel_size=8,stride=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(6,5,kernel_size=2,padding=1)
-        )
-
-        pass
-
-    def forward(self, x):
-        return self.conv_net(x)
-        
-class Decoder(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv_net_t = nn.Sequential(
-            nn.ConvTranspose2d(5,6,kernel_size=2,stride=2),
-            nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(6,8,kernel_size=8,stride=2),
-            nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(8, 5,kernel_size=4, stride=2), 
-            nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(5,3,kernel_size=2,stride=1)
-        )
-        pass
-
-    def forward(self, x):
-        x = self.conv_net_t(x)
-        return x
+from model import Autoencoder, Encoder, Decoder
 
 def linear_reward_func(enc_size, loss):
     return None #Do not use this yet
 
-
-
 def print_thread(args, data_q, model):
-    board = "runs/%d" % time.time()
+    board = "runs/online/%d" % time.time()
     writer = SummaryWriter(board)
     writer.add_text("Model/Encoder", str(model.encoder).replace("\n", "  \n"))
     writer.add_text("Model/Decoder", str(model.decoder).replace("\n", "  \n"))
@@ -108,7 +42,8 @@ def print_thread(args, data_q, model):
 # It will setup the model as well as the simulator settings and tensorboard and all that
 # It will then pass control to the simulator which will start all it's respective threads and begin running
 def main_online():
-    
+    #cd "C:/Users/isido/OneDrive/Files/School/Year 3/Winter 2022/APS360/OVAL"
+    #python3 online.py --video=data/videos/train/lwt_short.mp4 --stop=60 --cuda --load_model=data/models/offline.pt --out=data/videos/out/online.mp4
     parser = argparse.ArgumentParser(description='Arguments for Online Training')
     parser.add_argument('--video', type=None, help='The path to the video to load (from current directory). If this is empty then uses the video camera instead.')
     parser.add_argument('--lr', type=float, default=0.01, help='The learning rate for the model')
@@ -142,13 +77,13 @@ def main_online():
     #shutil.rmtree(board)
     loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss}[args.loss]
     device = 'cuda' if args.cuda else 'cpu'
-    enc_bytes = {16:torch.float16, 32:torch.float32, 64:torch.float64}[args.enc_bytes];
+    enc_bytes = {16:torch.float16, 32:torch.float32, 64:torch.float64}[args.enc_bytes]
     sender = arch.Sender(model, linear_reward_func, data_q, enc_bytes=enc_bytes, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)
 
     if args.video is not None:
-        video_sim = sim.VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps)#, size=(340, 256))
+        video_sim = VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps)#, size=(340, 256))
     else:
-        video_sim = sim.CameraVideoSimulator(rate=args.fps)
+        video_sim = CameraVideoSimulator(rate=args.fps)
     local_sim = sim.SingleSenderSimulator(sender, data_q)
     local_sim.start(video_sim, args.stop, args.out, loss_fn)
     p.kill()
