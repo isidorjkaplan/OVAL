@@ -43,6 +43,7 @@ def print_thread(args, data_q, model):
 # It will then pass control to the simulator which will start all it's respective threads and begin running
 def main_online():
     #cd "C:/Users/isido/OneDrive/Files/School/Year 3/Winter 2022/APS360/OVAL"
+    #python3 online.py --video=data/videos/train/lwt_short.mp4 --stop=60 --cuda --load_model=data/models/offline.pt --out=data/videos/out/online.mp4
     parser = argparse.ArgumentParser(description='Arguments for Online Training')
     parser.add_argument('--video', type=None, help='The path to the video to load (from current directory). If this is empty then uses the video camera instead.')
     parser.add_argument('--lr', type=float, default=0.01, help='The learning rate for the model')

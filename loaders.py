@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import numpy
 import torch
+import time
 import glob, os
 
 #Simulates a file as being a live video stream returning rate frames per second
@@ -68,9 +69,6 @@ class VideoSimulator():
 
     def next_frame(self):
         #Do all the reading and processing of the frame
-        if self.num_frames_read >= self.frameCount and not self.repeat:
-            return None
-
         frame = next(self.video_loader)
         if frame is None: #Restart video loader
             if not self.repeat:
@@ -80,8 +78,6 @@ class VideoSimulator():
             self.video_loader = VideoLoader(self.filepath, 1, video_size=self.video_size)
             frame = next(self.video_loader)
 
-
-        self.num_frames_read+=1
         #Sleep so that we ensure appropriate frame rate, only return at the proper time
         now = time.time()
         sleep_time = self.time_between_frames - (now - self.last_frame_time)

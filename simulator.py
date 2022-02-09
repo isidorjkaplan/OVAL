@@ -93,7 +93,7 @@ class SingleSenderSimulator():
         start = time.time()
         if runtime is not None:
             stop_time = start + runtime
-        for i,frame in enumerate(video):
+        for i,(frame,done) in enumerate(video):
             if frame is None:
                 break
             if runtime is not None and time.time() > stop_time:
