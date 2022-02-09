@@ -25,7 +25,7 @@ class Autoencoder(nn.Module):
         return x
 
 class Encoder(nn.Module):
-    def __init__(self, num_enc_layers:int, num_frames=2):
+    def __init__(self, num_enc_layers:int):
         super().__init__()
         self.num_enc_layers = num_enc_layers
         # feature extraction taken from first few layers of VGG 16
@@ -94,15 +94,15 @@ class Encoder(nn.Module):
         return x
 
 class Decoder(nn.Module):
-    def __init__(self, num_enc_layers:int, num_frames=2):
+    def __init__(self, num_enc_layers:int):
         super().__init__()
         self.num_enc_layers = num_enc_layers
         self.upsample = [
-            nn.Sequential(nn.ConvTranspose2d(3,8,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
+            nn.Sequential(nn.ConvTranspose2d(3,8,kernel_size=(3,4),stride=2, padding=1), nn.ReLU(True)),
             nn.Sequential(nn.ConvTranspose2d(8,16,kernel_size=(3,3), padding=1), nn.ReLU(True)),
-            nn.Sequential(nn.ConvTranspose2d(16,32,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True)),
+            nn.Sequential(nn.ConvTranspose2d(16,32,kernel_size=(4,4),stride=2, padding=1), nn.ReLU(True)),
             nn.Sequential(nn.ConvTranspose2d(32,64,kernel_size=(3,3), padding=1), nn.ReLU(True)),
-            nn.Sequential(nn.ConvTranspose2d(64,3,kernel_size=(3,3),stride=2, padding=1), nn.ReLU(True))
+            nn.Sequential(nn.ConvTranspose2d(64,3,kernel_size=(4,4),stride=2, padding=1), nn.ReLU(True))
         ]
         # self.decoder_1_convlstm = ConvLSTMCell(input_dim=3,  # nf + 1
         #                                        hidden_dim=num_frames,
@@ -115,11 +115,11 @@ class Decoder(nn.Module):
         #                                        bias=True)
 
         self.conv_postproc = nn.Sequential(
-            nn.ConvTranspose2d(3,16,kernel_size=(3,3),padding=1),
+            nn.ConvTranspose2d(3,16,stride=2,kernel_size=(3,3),padding=1),
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(16,8,kernel_size=(3,3),padding=1),
+            nn.ConvTranspose2d(16,8,kernel_size=(4,4),padding=1),
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(8,3,kernel_size=(3,3),padding=1),
+            nn.ConvTranspose2d(8,3,stride=2,kernel_size=(4,4),padding=1)
         )
 
 
