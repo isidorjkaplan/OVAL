@@ -32,6 +32,7 @@ def main_offline():
     parser.add_argument("--load_model", default=None, help="File for the model to load")
     parser.add_argument("--save_every", type=int, default=100, help="Save a copy of the model every N itterations")
     parser.add_argument("--save_model", default="data/models/offline.pt", help="File to save the model")
+    parser.add_argument("--max_frames", default=None, type=int, help="If specified, it will clip all videos to this many frames")
     args = parser.parse_args()
 
     #Select the device
@@ -67,8 +68,8 @@ def main_offline():
         arg_str = "%s**%s**: %s  \n" % (arg_str, key, str(vars(args)[key])) 
     writer.add_text("Args", arg_str)
 
-    train_loader = VideoDatasetLoader(os.path.join(args.video_folder, "train"), args.batch_size)
-    valid_loader = VideoDatasetLoader(os.path.join(args.video_folder, "valid"), args.batch_size)
+    train_loader = VideoDatasetLoader(os.path.join(args.video_folder, "train"), args.batch_size, max_frames=args.max_frames)
+    valid_loader = VideoDatasetLoader(os.path.join(args.video_folder, "valid"), args.batch_size, max_frames=args.max_frames)
 
     #Main training loop
     best_val_loss = float('inf')

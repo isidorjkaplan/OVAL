@@ -21,13 +21,13 @@ from skvideo.io import FFmpegWriter
 
 
 def main_offline():
-    #python3 convert_video.py data/models/offline.pt data/videos/other/lwt_short.mp4 data/videos/out/lwt_short.mp4 --cuda --stop_frames=200
+    #python3 convert_video.py data/models/offline.pt data/videos/other/lwt_short.mp4 data/videos/out/lwt_short.mp4 --cuda --max_frames=200
     parser = argparse.ArgumentParser(description='Encode and Decode a video using a trained model')
     parser.add_argument("load_model", help="File for the model to load")
     parser.add_argument('video', help='Path to an mp4 to convert')
     parser.add_argument('output', help="File to save the resulting converted video")
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
-    parser.add_argument('--stop_frames', type=int, default=None, help="Stop after fixed number of frames if set")
+    parser.add_argument('--max_frames', type=int, default=None, help="Stop after fixed number of frames if set")
     parser.add_argument('--batch_size', type=int, default=30, help='Number of frames to pass through network at a time')
     args = parser.parse_args()
 
@@ -46,20 +46,14 @@ def main_offline():
 
     writer = FFmpegWriter(args.output)
 
-    loader = VideoLoader(args.video, args.batch_size)
+    loader = VideoLoader(args.video, args.batch_size, max_frames=args.max_frames)
 
-    total_num_frames = loader.frameCount if args.stop_frames is None else min(loader.frameCount, args.stop_frames)
     for data in loader:
         if data is None:
             break
-
-        if args.stop_frames is not None and loader.num_frames_read > args.stop_frames:
-            print("Terminating early due to hitting frame limit")
-            break
-
         frames, done = data
 
-        print("Perctenage Complete: %d/%d=%d" % (loader.num_frames_read, total_num_frames, 100*loader.num_frames_read/total_num_frames))
+        print("Perctenage Complete: %d/%d=%d" % (loader.num_frames_read, loader.frameCount, 100*loader.num_frames_read/loader.frameCount))
         
         frames = frames.to(device)
         dec_frame = model(frames).detach().cpu()

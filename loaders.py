@@ -95,15 +95,18 @@ class VideoSimulator():
 
 class VideoLoader():
     #Opens the file and initilizes the video
-    def __init__(self, filepath, batch_size, video_id=None, video_size=None):
+    def __init__(self, filepath, batch_size, video_id=None, video_size=None, max_frames=None):
         self.cap = cv2.VideoCapture(filepath)
         self.frameCount = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if max_frames is not None:
+            self.frameCount = min(self.frameCount, max_frames)
         self.frameWidth = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.frameHeight = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
         self.batch_size = batch_size
         self.video_size = video_size
         self.vid_id = video_id
+        self.max_frames = None
         self.num_frames_read = 0
         #print("Loading Video=%s with frames=%d and size=(%d,%d)" % (filepath, self.frameCount, self.frameWidth, self.frameHeight))
 
@@ -138,11 +141,12 @@ class VideoLoader():
 
 class VideoDatasetLoader():
     #Opens the file and initilizes the video
-    def __init__(self, directory, batch_size, video_size=None):
+    def __init__(self, directory, batch_size, video_size=None, max_frames=None):
         self.last_video = 0
         self.video_directory = directory
         self.video_loaders = None
         self.batch_size = batch_size
+        self.max_frames = None
 
     def __iter__(self):
         return self
@@ -150,7 +154,7 @@ class VideoDatasetLoader():
     def reset(self):
         if self.video_loaders is not None:
             del self.video_loaders
-        self.video_loaders = [VideoLoader(filepath, self.batch_size, video_id=vid_id)  for vid_id,filepath in enumerate(glob.glob(os.path.join(self.video_directory, "*.mp4")))]
+        self.video_loaders = [VideoLoader(filepath, self.batch_size, video_id=vid_id, max_frames=self.max_frames)  for vid_id,filepath in enumerate(glob.glob(os.path.join(self.video_directory, "*.mp4")))]
         print("Reset video loader dataset with %d Videos" % len(self.video_loaders))
 
     def __next__(self):
