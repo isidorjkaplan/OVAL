@@ -14,6 +14,7 @@ import shutil
 import os
 import time
 import argparse
+from loaders import VideoSimulator, CameraVideoSimulator
 
 from torch.utils.tensorboard import SummaryWriter
 from model import Autoencoder, Encoder, Decoder
@@ -81,9 +82,9 @@ def main_online():
     sender = arch.Sender(model, linear_reward_func, data_q, enc_bytes=enc_bytes, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)
 
     if args.video is not None:
-        video_sim = sim.VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps)#, size=(340, 256))
+        video_sim = VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps)#, size=(340, 256))
     else:
-        video_sim = sim.CameraVideoSimulator(rate=args.fps)
+        video_sim = CameraVideoSimulator(rate=args.fps)
     local_sim = sim.SingleSenderSimulator(sender, data_q)
     local_sim.start(video_sim, args.stop, args.out, loss_fn)
     p.kill()
