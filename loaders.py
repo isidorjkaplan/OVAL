@@ -136,7 +136,7 @@ class VideoLoader():
         if self.num_frames_read == self.frameCount:
             self.cap.release()
 
-        buf = torch.FloatTensor(buf[:fc]).permute(0, 3, 1, 2)/255.0
+        buf = torch.FloatTensor(buf[:fc]).permute(0, 3, 2, 1)/255.0
 
         return buf, self.num_frames_read == self.frameCount
 
@@ -153,6 +153,7 @@ class VideoDatasetLoader():
         self.video_loaders = None
         self.batch_size = batch_size
         self.max_frames = max_frames
+        self.video_size = video_size
 
 
 
@@ -162,7 +163,7 @@ class VideoDatasetLoader():
     def reset(self):
         if self.video_loaders is not None:
             del self.video_loaders
-        self.video_loaders = [VideoLoader(filepath, self.batch_size, video_id=vid_id, max_frames=self.max_frames)  for vid_id,filepath in enumerate(glob.glob(os.path.join(self.video_directory, "*.mp4")))]
+        self.video_loaders = [VideoLoader(filepath, self.batch_size, video_id=vid_id, max_frames=self.max_frames,video_size=self.video_size)  for vid_id,filepath in enumerate(glob.glob(os.path.join(self.video_directory, "*.mp4")))]
         
         self.num_frames_read = 0
         self.total_num_frames = sum([loader.frameCount for loader in self.video_loaders])
