@@ -8,10 +8,10 @@ ConvSettings = namedtuple("ConvSettings", "out_channels stride kern")
 
 #TEMPORRY, WILL REPLACE WITH RYANS AUTOENCODER MODEL LATER
 class Autoencoder(nn.Module):
-    def __init__(self, image_dim, n_channels=3, save_path=None, conv_settings=[ConvSettings(5,2,2), ConvSettings(2,2,2)], linear_layers=[1024, 512]):
+    def __init__(self, image_dim, n_channels=3, save_path=None, conv_settings=[ConvSettings(5,2,2), ConvSettings(2,2,2)], linear_layers=[1024*2, 1024], rnn_layers=2):
         super().__init__()
-        self.encoder = Encoder(image_dim, n_channels, conv_settings, linear_layers)
-        self.decoder = Decoder(image_dim, n_channels, conv_settings, linear_layers, self.encoder.flatten_size, self.encoder.conv_out_shape)
+        self.encoder = Encoder(image_dim, n_channels, conv_settings, linear_layers, rnn_layers)
+        self.decoder = Decoder(image_dim, n_channels, conv_settings, linear_layers, rnn_layers, self.encoder.flatten_size, self.encoder.conv_out_shape)
         self.save_path = save_path
 
     def clone(self):
@@ -31,7 +31,7 @@ class Autoencoder(nn.Module):
     #TODO load_state_dict
     
 class Encoder(nn.Module):
-    def __init__(self, image_dim, n_channels, conv_settings, linear_layers):
+    def __init__(self, image_dim, n_channels, conv_settings, linear_layers, rnn_layers):
         super().__init__()
         self.conv_net = [nn.Conv2d(n_channels, conv_settings[0].out_channels, kernel_size=conv_settings[0].kern, stride=conv_settings[0].stride)]
         [self.conv_net.extend([nn.ReLU(inplace=True), nn.Conv2d(conv_settings[i-1].out_channels, conv_settings[i].out_channels, kernel_size=conv_settings[i].kern, stride=conv_settings[i].stride)]) for i in range(1, len(conv_settings))]
@@ -43,6 +43,8 @@ class Encoder(nn.Module):
         self.flatten_size = self.conv_out_shape.numel()
         self.conv_out_shape = self.conv_out_shape.shape[1:]
 
+        #self.rnn = nn.LSTM(self.flatten_size, self.flatten_size, rnn_layers, batch_first=True)
+
         layers = [nn.Linear(self.flatten_size, linear_layers[0])]
         [layers.extend([nn.ReLU(inplace=True), nn.Linear(linear_layers[i-1], linear_layers[i])]) for i in range(1, len(linear_layers))]
 
@@ -50,21 +52,27 @@ class Encoder(nn.Module):
 
         pass
 
-    def forward(self, x):
+    def forward(self, x, hidden=None):
         assert (x.shape[2], x.shape[3]) == self.image_dim
         x = self.conv_net(x)
         x = x.view(x.shape[0], self.flatten_size)
+        #if hidden is not None:
+        #    x, hidden = self.rnn(x, hidden)
+        #else:
+        #    x, hidden = self.rnn(x)
         x = self.linear_net(x)
         return x
         
 class Decoder(nn.Module):
-    def __init__(self, image_dim, n_channels, conv_settings, linear_layers, flatten_size, conv_shape):
+    def __init__(self, image_dim, n_channels, conv_settings, linear_layers, rnn_layers, flatten_size, conv_shape):
         super().__init__()
 
         layers = []
         [layers.extend([nn.Linear(linear_layers[i], linear_layers[i-1]), nn.ReLU(inplace=True)]) for i in range(len(linear_layers)-1, 0, -1)]
         layers.extend([nn.Linear(linear_layers[0], flatten_size)])
         self.linear_net = nn.Sequential(*layers)
+
+        #self.rnn = nn.LSTM(self.flatten_size, self.flatten_size, rnn_layers, batch_first=True)
 
         self.conv_net = []
         [self.conv_net.extend([nn.ConvTranspose2d(conv_settings[i].out_channels, conv_settings[i-1].out_channels, kernel_size=conv_settings[i].kern, stride=conv_settings[i].stride), nn.ReLU(inplace=True)]) for i in range(len(conv_settings)-1, 0, -1)]
@@ -78,8 +86,12 @@ class Decoder(nn.Module):
 
         pass
 
-    def forward(self, x):
+    def forward(self, x, hidden=None):
         x = self.linear_net(x)
+        #if hidden is not None:
+        #    x, hidden = self.rnn(x, hidden)
+        #else:
+        #    x, hidden = self.rnn(x)
         x = x.view(x.shape[0], *self.conv_shape)
         x = self.conv_net(x)
         return x
