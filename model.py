@@ -1,20 +1,18 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+import copy
 
 #TEMPORRY, WILL REPLACE WITH RYANS AUTOENCODER MODEL LATER
 class Autoencoder(nn.Module):
-    def __init__(self, save_path=None):
+    def __init__(self, image_dim, n_channels=3, save_path=None):
         super().__init__()
-        self.encoder = Encoder()
-        self.decoder = Decoder()
+        self.encoder = Encoder(image_dim, n_channels)
+        self.decoder = Decoder(image_dim, n_channels)
         self.save_path = save_path
 
     def clone(self):
-        ae = Autoencoder()
-        ae.encoder.load_state_dict(self.encoder.state_dict())
-        ae.decoder.load_state_dict(self.decoder.state_dict())
-        return ae
+        return copy.deepcopy(self)
 
     def save_model(self):
         if self.save_path is not None:
@@ -30,7 +28,7 @@ class Autoencoder(nn.Module):
     #TODO load_state_dict
     
 class Encoder(nn.Module):
-    def __init__(self):
+    def __init__(self, image_dim, n_channels):
         super().__init__()
         self.conv_net = nn.Sequential(
             nn.Conv2d(3, 5,kernel_size=2,stride=1), 
@@ -48,7 +46,7 @@ class Encoder(nn.Module):
         return self.conv_net(x)
         
 class Decoder(nn.Module):
-    def __init__(self):
+    def __init__(self, image_dim, n_channels):
         super().__init__()
         self.conv_net_t = nn.Sequential(
             nn.ConvTranspose2d(5,6,kernel_size=2,stride=1),

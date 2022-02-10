@@ -8,12 +8,14 @@ import glob, os
 #Simulates a file as being a live video stream returning rate frames per second
 class CameraVideoSimulator():
     #Opens the file and initilizes the video
-    def __init__(self, rate=30, size=None):
+    def __init__(self, rate=30, video_size=None):
 
         #Parameters for frame reading
         self.num_frames_read = 0
         self.last_frame_time = time.time()
         self.time_between_frames = 1.0/rate
+
+        self.size = video_size
 
         self.stream = cv2.VideoCapture(0)
         self.frameWidth = int(self.stream.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -32,6 +34,9 @@ class CameraVideoSimulator():
         ret, frame = self.stream.read()
         if not ret:#Check for error
             return None
+
+        if self.size is not None:
+            frame = cv2.resize(frame, self.size, interpolation = cv2.INTER_AREA)
 
         frame = torch.FloatTensor(frame).permute(2, 1, 0)/255.0
         frame = frame.view(1, 3, self.frameWidth, self.frameHeight)
@@ -96,8 +101,11 @@ class VideoLoader():
         self.frameCount = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         if max_frames is not None:
             self.frameCount = min(self.frameCount, max_frames)
-        self.frameWidth = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.frameHeight = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        if video_size is None:
+            self.frameWidth = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            self.frameHeight = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        else:
+            self.frameWidth, self.frameHeight = video_size
 
         self.batch_size = batch_size
         self.video_size = video_size
@@ -117,9 +125,11 @@ class VideoLoader():
         fc = 0
         ret = True
         while (fc < self.batch_size and self.num_frames_read < self.frameCount  and ret):
-            ret, buf[fc] = self.cap.read()
+            ret, frame = self.cap.read()
             if self.video_size is not None: #Optionally resize to specific size
-                buf[fc] = cv2.resize(buf[fc], self.video_size, interpolation = cv2.INTER_LINEAR)
+                buf[fc] = cv2.resize(frame, self.video_size, interpolation = cv2.INTER_AREA)
+            else:
+                buf[fc] = frame
             fc += 1
             self.num_frames_read += 1
 

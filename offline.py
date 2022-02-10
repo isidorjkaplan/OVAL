@@ -16,6 +16,7 @@ import argparse
 import itertools
 import glob, os
 from loaders import VideoDatasetLoader
+from ast import literal_eval
 
 
 
@@ -35,7 +36,10 @@ def main_offline():
     #parser.add_argument("--save_every", type=int, default=100, help="Save a copy of the model every N itterations")
     parser.add_argument("--save_model", default="data/models/offline.pt", help="File to save the model")
     parser.add_argument("--max_frames", default=None, type=int, help="If specified, it will clip all videos to this many frames")
+    parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
     args = parser.parse_args()
+
+    video_size = literal_eval(args.img_size)
 
     #Select the device
     assert not args.cuda or torch.cuda.is_available()
@@ -45,7 +49,7 @@ def main_offline():
     loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss}[args.loss]
 
     #Load the model
-    model = Autoencoder(save_path=args.save_model)
+    model = Autoencoder(video_size, save_path=args.save_model)
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
         model.load_state_dict(torch.load(args.load_model))
@@ -70,8 +74,8 @@ def main_offline():
         arg_str = "%s**%s**: %s  \n" % (arg_str, key, str(vars(args)[key])) 
     writer.add_text("Args", arg_str)
 
-    train_loader = VideoDatasetLoader(os.path.join(args.video_folder, "train"), args.batch_size, max_frames=args.max_frames)
-    valid_loader = VideoDatasetLoader(os.path.join(args.video_folder, "valid"), args.batch_size, max_frames=args.max_frames)
+    train_loader = VideoDatasetLoader(os.path.join(args.video_folder, "train"), args.batch_size, max_frames=args.max_frames, video_size=video_size)
+    valid_loader = VideoDatasetLoader(os.path.join(args.video_folder, "valid"), args.batch_size, max_frames=args.max_frames, video_size=video_size)
 
     #Main training loop
     best_val_loss = float('inf')
