@@ -15,6 +15,7 @@ import os
 import time
 import argparse
 from loaders import VideoSimulator, CameraVideoSimulator
+from ast import literal_eval
 
 from torch.utils.tensorboard import SummaryWriter
 from model import Autoencoder, Encoder, Decoder
@@ -58,13 +59,16 @@ def main_online():
     parser.add_argument('--out', type=str, default=None, help='The path to save the decoded video for inspection')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
     parser.add_argument("--save_model", default=None, help="File to save the model")
+    parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
 
     args = parser.parse_args()
+
+    video_size = literal_eval(args.img_size)
 
     assert args.enc_bytes in [16, 32, 64]
 
     data_q = Queue()
-    model = Autoencoder(save_path = args.save_model)
+    model = Autoencoder(video_size, save_path=args.save_model)
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
         model.load_state_dict(torch.load(args.load_model))
@@ -81,9 +85,9 @@ def main_online():
     sender = arch.Sender(model, linear_reward_func, data_q, enc_bytes=enc_bytes, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)
 
     if args.video is not None:
-        video_sim = VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps)#, size=(340, 256))
+        video_sim = VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps, video_size=video_size)#, size=(340, 256))
     else:
-        video_sim = CameraVideoSimulator(rate=args.fps)
+        video_sim = CameraVideoSimulator(rate=args.fps, video_size=video_size)
     local_sim = sim.SingleSenderSimulator(sender, data_q)
     local_sim.start(video_sim, args.stop, args.out, loss_fn)
     p.kill()

@@ -17,6 +17,7 @@ import itertools
 import glob, os
 from loaders import VideoLoader
 from skvideo.io import FFmpegWriter
+from ast import literal_eval
 
 
 
@@ -29,15 +30,17 @@ def main_offline():
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
     parser.add_argument('--max_frames', type=int, default=None, help="Stop after fixed number of frames if set")
     parser.add_argument('--batch_size', type=int, default=30, help='Number of frames to pass through network at a time')
+    parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this. Pass '(x,y)' ")
     args = parser.parse_args()
 
     #Select the device
     assert not args.cuda or torch.cuda.is_available()
     device = 'cuda' if args.cuda else 'cpu'
 
-   
+    video_size = literal_eval(args.img_size)
+
     #Load the model
-    model = Autoencoder()
+    model = Autoencoder(video_size)
     print("Loading model: %s" % args.load_model)
     model.load_state_dict(torch.load(args.load_model))
     if args.cuda:
@@ -46,7 +49,7 @@ def main_offline():
 
     writer = FFmpegWriter(args.output)
 
-    loader = VideoLoader(args.video, args.batch_size, max_frames=args.max_frames)
+    loader = VideoLoader(args.video, args.batch_size, max_frames=args.max_frames, video_size=video_size)
 
     for data in loader:
         if data is None:
