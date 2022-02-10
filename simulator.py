@@ -16,6 +16,8 @@ from skvideo.io import FFmpegWriter
 
 from torch.utils.tensorboard import SummaryWriter
 
+# Fixes "too many files open" errors
+torch.multiprocessing.set_sharing_strategy("file_system")
 
 # This enviornment is used for the tests without federated learning. We are just monitoring one sender's ability to adapt
 # We will run this on many seperate videos and collect the average for test reporting in the paper
@@ -154,6 +156,7 @@ class SingleSenderSimulator():
             #plt.show(block=False)
             #print("Recieved encoded frame with loss = " + str(error.item()))
         if out_file is not None:
+            print("outfile closed")
             out.close()
         print("Recieve thread terminated")
         pass
