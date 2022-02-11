@@ -28,6 +28,7 @@ Watch the video it outputs to see it training in real-time.
 | Model V1 |   | Isidor  | 3  |  Feb 12 | Completed Feb 9 |
 | Model V2 |   | Ryan  | 3  |  Feb 12  | Active |
 | Primitive Data Loader |   | Isidor  | 1  |  Feb 12  | Completed Feb 9 |
+| Tuning | Tune model and all related settings to try and achieve a good result  | Khantil  | 3  |  -  | Active |
 | Enhanced Data Loader | Must support multi-threaded pre-loading of frames to avoid stalling critical path  | Khantil  | 3  |  Feb 15  | Active |
 | Solve Online Memory Leak |  Causing online to crash after long training sessions | Adam  | -  |  Feb 12  | Active |
 | Color Spaces (Model Out) | What should model try to predict. Will help with the loss function and black/white problem. Will need to simply add a function that we call on the input image before passing into the loss with the model. Also will need to adjust the video generators to convert back to RGB before saving. This could potentially be internal to the model, it is a design desicion. | -  | 1  |  - | Active |
