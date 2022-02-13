@@ -21,7 +21,7 @@ torch.multiprocessing.set_sharing_strategy("file_system")
 
 # This enviornment is used for the tests without federated learning. We are just monitoring one sender's ability to adapt
 # We will run this on many seperate videos and collect the average for test reporting in the paper
-# In this setup, we don't actually use a reciever. The sender is a black box which will take in frames we feed it 
+# In this setup, we don't actually use a receiver. The sender is a black box which will take in frames we feed it 
 # We will keep track of any information it broadcasts for the sake of monitoring the information
 # Any encoded frames it sends us, we will use it's last decoder to decode it and measure it's accuracy
 # The sender thinks it is sending to a real network with real decoders, but we intercept and simply calculate its test performance here
@@ -49,11 +49,11 @@ class SingleSenderSimulator():
     #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
     # When this returns it must have killed both the train and video thread
     # Will return some final statistics such as the overall error rate, overall network traffic, overall accuracy for the entire video
-    def start(self, video, runtime, out_file, loss_fn):
+    def start(self, video, runtime, out_file, rate, loss_fn):
         p_train = Process(target=self.train_thread)
         p_train.start() #Start training and then go to the live video feed
 
-        p_recv = Process(target=self.recieve_thread, args=(out_file,loss_fn,))
+        p_recv = Process(target=self.receive_thread, args=(out_file,loss_fn,rate))
         p_recv.start()
         try:
             self.video_thread(video, runtime)
@@ -114,9 +114,10 @@ class SingleSenderSimulator():
         self.data_q.put(None) #Signify it is done
         print("Finished reading Video")
             
-    def recieve_thread(self, out_file, loss_fn):
+    def receive_thread(self, out_file, rate, loss_fn):
         if out_file is not None:
-            out = FFmpegWriter(out_file)
+            #out = FFmpegWriter(out_file)
+            out = cv2.VideoWriter(out_file, cv2.VideoWriter_fourcc('M','J','P','G'), rate)
         frame_num = 0
         type_sizes = {torch.float16:2, torch.float32:4, torch.float64:8}
         while not self.done.value:
@@ -140,13 +141,14 @@ class SingleSenderSimulator():
             #frame = self.video.get_frame(frame_num)
             error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
             #print("loss_v=%g" % error)
-            self.board.put(("reciever/realtime frame loss", error, frame_num)) 
-            self.board.put(("reciever/compression factor (original/compressed)", uncomp_bytes/num_bytes, frame_num))
+            self.board.put(("receiver/realtime frame loss", error, frame_num)) 
+            self.board.put(("receiver/compression factor (original/compressed)", uncomp_bytes/num_bytes, frame_num))
             #Live display of video 
             dec_np_frame = dec_frame[0].permute(2, 1, 0).numpy()
             dec_np_frame = np.uint8(255*dec_np_frame)
             if out_file is not None:
-                out.writeFrame(dec_np_frame)
+                #out.writeFrame(dec_np_frame)
+                cv2.imwrite(out_file, dec_np_frame)
             if self.live_video and frame_num % 30 == 0:
                 cv2.imshow("Decoded", dec_np_frame)
                 cv2.imshow("Real", frame[0].permute(2, 1, 0).numpy())
@@ -154,11 +156,11 @@ class SingleSenderSimulator():
             frame_num+=1
             #plt.imshow(dec_frame[0].permute(1, 2, 0))
             #plt.show(block=False)
-            #print("Recieved encoded frame with loss = " + str(error.item()))
+            #print("Received encoded frame with loss = " + str(error.item()))
         if out_file is not None:
             print("outfile closed")
             out.close()
-        print("Recieve thread terminated")
+        print("Receive thread terminated")
         pass
     #PRIVATE FUNCTIONS
 
