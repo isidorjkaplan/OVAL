@@ -148,7 +148,7 @@ class SingleSenderSimulator():
             dec_np_frame = np.uint8(255*dec_np_frame)
             if out_file is not None:
                 #out.writeFrame(dec_np_frame)
-                cv2.imwrite(out_file, dec_np_frame)
+                out.write(frame)
             if self.live_video and frame_num % 30 == 0:
                 cv2.imshow("Decoded", dec_np_frame)
                 cv2.imshow("Real", frame[0].permute(2, 1, 0).numpy())
@@ -159,8 +159,9 @@ class SingleSenderSimulator():
             #print("Received encoded frame with loss = " + str(error.item()))
         if out_file is not None:
             print("outfile closed")
-            out.close()
+            out.release()
         print("Receive thread terminated")
+        cv2.destroyAllWindows()
         pass
     #PRIVATE FUNCTIONS
 
