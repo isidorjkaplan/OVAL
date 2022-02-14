@@ -146,12 +146,21 @@ def main_online():
     enc_bytes = {16:torch.float16, 32:torch.float32, 64:torch.float64}[args.enc_bytes];
     sender = arch.Sender(model, linear_reward_func, data_q, enc_bytes=enc_bytes, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)
 
+    frameWidth, frameHeight = None, None
     if args.video is not None:
+        cap = cv2.VideoCapture(args.video)
+        frameWidth = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frameHeight = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        cap.release()
         video_sim = sim.VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps)#, size=(340, 256))
     else:
+        stream = cv2.VideoCapture(0)
+        frameWidth = int(stream.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frameHeight = int(stream.get(cv2.CAP_PROP_FRAME_HEIGHT))
         video_sim = sim.CameraVideoSimulator(rate=args.fps)
+
     local_sim = sim.SingleSenderSimulator(sender, data_q, live_video=args.live_video)
-    local_sim.start(video_sim, args.stop, args.out, args.fps, loss_fn)
+    local_sim.start(video_sim, args.stop, args.out, args.fps, frameWidth, frameHeight, loss_fn)
     p.kill()
     p.join()
 
