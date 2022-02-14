@@ -113,6 +113,7 @@ class SingleSenderSimulator():
             if abs(now-start)>0.00001: #Somehow I was getting a divide by zero error?
                 self.board.put(("timing/send_fps (frames/sec)", 1/(now - start), i))
             start = time.time()            #Evaluate the error on our encoding to report for testing set
+        self.done.value = True # kills the train thread
         self.data_q.put(None) #Signify it is done
         print("Finished reading Video")
             
