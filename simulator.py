@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import ctypes
 import traceback
 from skvideo.io import FFmpegWriter
+import ffmpeg
 
 
 from torch.utils.tensorboard import SummaryWriter
@@ -49,11 +50,11 @@ class SingleSenderSimulator():
     #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
     # When this returns it must have killed both the train and video thread
     # Will return some final statistics such as the overall error rate, overall network traffic, overall accuracy for the entire video
-    def start(self, video, runtime, out_file, rate, frameWidth, frameHeight, loss_fn):
+    def start(self, video, runtime, out_file, rate, loss_fn):
         p_train = Process(target=self.train_thread)
         p_train.start() #Start training and then go to the live video feed
 
-        p_recv = Process(target=self.receive_thread, args=(out_file,rate,frameWidth,frameHeight,loss_fn))
+        p_recv = Process(target=self.receive_thread, args=(out_file,rate,loss_fn))
         p_recv.start()
         try:
             self.video_thread(video, runtime)
@@ -108,13 +109,12 @@ class SingleSenderSimulator():
             now = time.time()
             if abs(now-start)>0.00001: #Somehow I was getting a divide by zero error?
                 self.board.put(("timing/send_fps (frames/sec)", 1/(now - start), i))
-            start = time.time()
-            #Evaluate the error on our encoding to report for testing set
+            start = time.time()            #Evaluate the error on our encoding to report for testing set
         self.done.value = True
         self.data_q.put(None) #Signify it is done
         print("Finished reading Video")
             
-    def receive_thread(self, out_file, rate, frameWidth, frameHeight, loss_fn):
+    def receive_thread(self, out_file, rate, loss_fn):
         frame_num = 0
         type_sizes = {torch.float16:2, torch.float32:4, torch.float64:8}
         out = None
@@ -135,8 +135,7 @@ class SingleSenderSimulator():
             encoded = encoded.type(frame.dtype) #We can now upscale its type back to 32 bit for evaluation
             dec_frame = self.decoder(encoded).detach()
             if out_file is not None and frame_num == 0:
-                #out = FFmpegWriter(out_file)
-                out = cv2.VideoWriter(out_file, cv2.VideoWriter_fourcc(*'mp4v'), int(rate), dec_frame.shape[:2], True)
+                out = FFmpegWriter(out_file)
             frame = frame[:,:,:dec_frame.shape[2], :dec_frame.shape[3]] #Due to conv fringing, not same size. Almost same size. Just cut
             uncomp_bytes = frame.shape[1]*frame.shape[2]*frame.shape[3]*1 #For uncompressed, 1 byte per channel * C*L*W is total size
             #frame = self.video.get_frame(frame_num)
@@ -148,9 +147,7 @@ class SingleSenderSimulator():
             dec_np_frame = dec_frame[0].permute(2, 1, 0).numpy()
             dec_np_frame = np.uint8(255*dec_np_frame)
             if out_file is not None:
-                #out.writeFrame(dec_np_frame)
-                out.write(dec_np_frame)
-                print(f"writing frame {frame_num}")
+                out.writeFrame(dec_np_frame)
             if self.live_video and frame_num % 30 == 0:
                 cv2.imshow("Decoded", dec_np_frame)
                 cv2.imshow("Real", frame[0].permute(2, 1, 0).numpy())
