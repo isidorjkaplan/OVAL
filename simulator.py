@@ -28,7 +28,7 @@ torch.multiprocessing.set_sharing_strategy("file_system")
 # The sender thinks it is sending to a real network with real decoders, but we intercept and simply calculate its test performance here
 # In future tests, we use the same sender without modification, but instead we will have many and maintain the federated model in env
 class SingleSenderSimulator():
-    def __init__(self, sender, board, server=None, live_video=False):
+    def __init__(self, sender, board, server=None, live_video=False, batch_size=5):
         #Sender does all the heavy lifting on training, we are just an interface for sender and the real world and testing
         self.sender = sender
         #A tensorboard which we will plot statitsics about the accuracy and all that of our sender
@@ -45,6 +45,7 @@ class SingleSenderSimulator():
         self.done.value = False
         self.data_q = Queue()
         self.model_q = Queue()
+        self.batch_size = batch_size
         pass
     
     #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
@@ -97,18 +98,25 @@ class SingleSenderSimulator():
         if runtime is not None:
             stop_time = start + runtime
         frame_num = 0
-        for i,frame in enumerate(video):
-            if frame is None:
-                break
+        for i in range(len(video)/self.batch_size):
             if runtime is not None and time.time() > stop_time:
                 break
             #Perform encoding and transmit it
-            encoded = self.sender.evaluate(frame).detach()
+            encoded = []
+            frames = []
+            for j in range(self.batch_size):
+                if video[i] is None: # pad with None to fill batch
+                    frames.append(None)
+                    encoded.append(None)
+                    continue
+                frames.append(video[i])
+                encoded.append(self.sender.evaluate(video[i]).detach())
+                i+=1
             print(f"reading frame: {frame_num}")
-            frame_num+=1
+            frame_num+=self.batch_size
             #encoded.share_memory_()
             #frame.share_memory_()
-            self.data_q.put((encoded, frame))
+            self.data_q.put((encoded, frames))
             now = time.time()
             if abs(now-start)>0.00001: #Somehow I was getting a divide by zero error?
                 self.board.put(("timing/send_fps (frames/sec)", 1/(now - start), i))
@@ -121,6 +129,8 @@ class SingleSenderSimulator():
         frame_num = 0
         type_sizes = {torch.float16:2, torch.float32:4, torch.float64:8}
         out = None
+        if out_file is not None:
+            out = FFmpegWriter(out_file)
         while True:
             num_bytes = 0
             #THIS IS TOO SLOW. Must do this in another thread
@@ -132,31 +142,33 @@ class SingleSenderSimulator():
             if data is None:
                 print("Video Stream Terminated")
                 break
-            encoded, frame = data
+            encoded, frames = data
 
             num_bytes += encoded.numel()*type_sizes[encoded.dtype] #Check what type was used on network
-            encoded = encoded.type(frame.dtype) #We can now upscale its type back to 32 bit for evaluation
-            dec_frame = self.decoder(encoded).detach()
-            if out_file is not None and frame_num == 0:
-                out = FFmpegWriter(out_file)
-            frame = frame[:,:,:dec_frame.shape[2], :dec_frame.shape[3]] #Due to conv fringing, not same size. Almost same size. Just cut
-            uncomp_bytes = frame.shape[1]*frame.shape[2]*frame.shape[3]*1 #For uncompressed, 1 byte per channel * C*L*W is total size
-            #frame = self.video.get_frame(frame_num)
-            error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
-            #print("loss_v=%g" % error)
-            self.board.put(("receiver/realtime frame loss", error, frame_num)) 
-            self.board.put(("receiver/compression factor (original/compressed)", uncomp_bytes/num_bytes, frame_num))
-            #Live display of video 
-            dec_np_frame = dec_frame[0].permute(2, 1, 0).numpy()
-            dec_np_frame = np.uint8(255*dec_np_frame)
+            encoded = encoded.type(frames[0].dtype) #We can now upscale its type back to 32 bit for evaluation
+            dec_frames, dec_np_frames = [], []
+            # Batch processing
+            for i in range(self.batch_size):
+                dec_frames.append(self.decoder(encoded).detach())
+                frames[i] = frames[i][:,:,:dec_frames[i].shape[2], :dec_frames[i].shape[3]] #Due to conv fringing, not same size. Almost same size. Just cut
+                uncomp_bytes = frames[0].shape[1]*frames[0].shape[2]*frames[0].shape[3]*1 #For uncompressed, 1 byte per channel * C*L*W is total size
+                error = F.mse_loss(frames[i], dec_frames[i]).detach() #Temporary, switch later     
+                #print("loss_v=%g" % error)
+                self.board.put(("receiver/realtime frame loss", error, frame_num)) 
+                self.board.put(("receiver/compression factor (original/compressed)", uncomp_bytes/num_bytes, frame_num))
+                #Live display of video 
+                dec_np_frames.append(dec_frames[i][0].permute(2, 1, 0).numpy())
+                dec_np_frames[i] = np.uint8(255*dec_np_frames[i])
+                if self.live_video and frame_num % 30 == 0:
+                    cv2.imshow("Decoded", dec_np_frames[i])
+                    cv2.imshow("Real", frames[i][0].permute(2, 1, 0).numpy())
+                    cv2.waitKey(1)
+
             if out_file is not None:
-                out.writeFrame(dec_np_frame)
+                out.writeFrame(dec_np_frames)
                 print(f"writing frame: {frame_num}")
-            if self.live_video and frame_num % 30 == 0:
-                cv2.imshow("Decoded", dec_np_frame)
-                cv2.imshow("Real", frame[0].permute(2, 1, 0).numpy())
-                cv2.waitKey(1)
-            frame_num+=1
+            frame_num+=self.batch_size
+            
             #plt.imshow(dec_frame[0].permute(1, 2, 0))
             #plt.show(block=False)
             #print("Received encoded frame with loss = " + str(error.item()))
