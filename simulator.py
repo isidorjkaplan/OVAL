@@ -96,6 +96,7 @@ class SingleSenderSimulator():
         start = time.time()
         if runtime is not None:
             stop_time = start + runtime
+        frame_num = 0
         for i,frame in enumerate(video):
             if frame is None:
                 break
@@ -103,6 +104,8 @@ class SingleSenderSimulator():
                 break
             #Perform encoding and transmit it
             encoded = self.sender.evaluate(frame).detach()
+            print(f"reading frame: {frame_num}")
+            frame_num+=1
             #encoded.share_memory_()
             #frame.share_memory_()
             self.data_q.put((encoded, frame))
@@ -110,7 +113,6 @@ class SingleSenderSimulator():
             if abs(now-start)>0.00001: #Somehow I was getting a divide by zero error?
                 self.board.put(("timing/send_fps (frames/sec)", 1/(now - start), i))
             start = time.time()            #Evaluate the error on our encoding to report for testing set
-        self.done.value = True
         self.data_q.put(None) #Signify it is done
         print("Finished reading Video")
             
@@ -118,7 +120,7 @@ class SingleSenderSimulator():
         frame_num = 0
         type_sizes = {torch.float16:2, torch.float32:4, torch.float64:8}
         out = None
-        while not self.done.value:
+        while True:
             num_bytes = 0
             #THIS IS TOO SLOW. Must do this in another thread
             if not self.model_q.empty():
@@ -148,6 +150,7 @@ class SingleSenderSimulator():
             dec_np_frame = np.uint8(255*dec_np_frame)
             if out_file is not None:
                 out.writeFrame(dec_np_frame)
+                print(f"writing frame: {frame_num}")
             if self.live_video and frame_num % 30 == 0:
                 cv2.imshow("Decoded", dec_np_frame)
                 cv2.imshow("Real", frame[0].permute(2, 1, 0).numpy())
@@ -158,7 +161,7 @@ class SingleSenderSimulator():
             #print("Received encoded frame with loss = " + str(error.item()))
         if out_file is not None:
             print("outfile closed")
-            out.release()
+            out.close()
         print("Receive thread terminated")
         cv2.destroyAllWindows()
         pass
