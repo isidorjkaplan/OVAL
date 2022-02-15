@@ -153,7 +153,7 @@ def main_online():
         video_sim = sim.CameraVideoSimulator(rate=args.fps)
 
     local_sim = sim.SingleSenderSimulator(sender, data_q, live_video=args.live_video)
-    local_sim.start(video_sim, args.stop, args.out, args.fps, loss_fn)
+    local_sim.start(video_sim, args.stop, args.out, args.fps, 5, loss_fn)
     p.kill()
     p.join()
 
