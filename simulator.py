@@ -124,6 +124,7 @@ class SingleSenderSimulator():
         out = None
         if out_file is not None:
             out = FFmpegWriter(out_file)
+        # Batch decoding
         batch_decoded_np = []
         batch_count = 0
         while True:
@@ -133,6 +134,12 @@ class SingleSenderSimulator():
                 num_bytes += sum((p.numel()*type_sizes[p.dtype]) for p in self.decoder.parameters())
                 self.decoder.load_state_dict(self.model_q.get())
             #This is done here instead of send thread to avoid delaying critical path measurements
+            # Downsampling
+            BUF_SIZE = 100
+            while self.data_q.size() > BUF_SIZE:
+                    print("downsampling...")
+                    self.data_q.get()
+
             data = self.data_q.get()
             if data is None:
                 print("Video Stream Terminated")
