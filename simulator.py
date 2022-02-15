@@ -136,7 +136,7 @@ class SingleSenderSimulator():
             #This is done here instead of send thread to avoid delaying critical path measurements
             # Downsampling
             BUF_SIZE = 100
-            while self.data_q.size() > BUF_SIZE:
+            while self.data_q.qsize() > BUF_SIZE:
                     print("downsampling...")
                     self.data_q.get()
 
