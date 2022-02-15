@@ -125,6 +125,8 @@ def main_online():
     parser.add_argument("--save_model", default=None, help="File to save the model")
     parser.add_argument("--live_video", action="store_true", default=False, help="Turns on the real/decoded live video feed")
     parser.add_argument("--batch_size", type=int, default=5, help="Sets the batch size to be used in sending/receiving")
+    parser.add_argument("--downsample", type=int, default=10000, help="The buffer size of the receive queue, after which we downsample")
+
 
     args = parser.parse_args()
 
@@ -154,7 +156,7 @@ def main_online():
         video_sim = sim.CameraVideoSimulator(rate=args.fps)
 
     local_sim = sim.SingleSenderSimulator(sender, data_q, live_video=args.live_video)
-    local_sim.start(video_sim, args.stop, args.out, args.fps, 5, loss_fn)
+    local_sim.start(video_sim, args.stop, args.out, args.fps, 5, args.downsample, loss_fn)
     p.kill()
     p.join()
 

@@ -51,11 +51,11 @@ class SingleSenderSimulator():
     #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
     # When this returns it must have killed both the train and video thread
     # Will return some final statistics such as the overall error rate, overall network traffic, overall accuracy for the entire video
-    def start(self, video, runtime, out_file, rate, batch_size, loss_fn):
+    def start(self, video, runtime, out_file, rate, batch_size, downsample, loss_fn):
         p_train = Process(target=self.train_thread)
         p_train.start() #Start training and then go to the live video feed
 
-        p_recv = Process(target=self.receive_thread, args=(out_file,rate,batch_size,loss_fn))
+        p_recv = Process(target=self.receive_thread, args=(out_file,rate,batch_size,downsample,loss_fn))
         p_recv.start()
         try:
             self.video_thread(video, runtime)
@@ -118,7 +118,7 @@ class SingleSenderSimulator():
         self.data_q.put(None) #Signify it is done
         print("Finished reading Video")
             
-    def receive_thread(self, out_file, rate, batch_size, loss_fn):
+    def receive_thread(self, out_file, rate, batch_size, downsample, loss_fn):
         frame_num = 0
         type_sizes = {torch.float16:2, torch.float32:4, torch.float64:8}
         out = None
@@ -135,8 +135,7 @@ class SingleSenderSimulator():
                 self.decoder.load_state_dict(self.model_q.get())
             #This is done here instead of send thread to avoid delaying critical path measurements
             # Downsampling
-            BUF_SIZE = 100
-            while self.data_q.qsize() > BUF_SIZE:
+            while self.data_q.qsize() > downsample:
                     print("downsampling...")
                     self.data_q.get()
 
