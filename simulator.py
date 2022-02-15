@@ -28,7 +28,7 @@ torch.multiprocessing.set_sharing_strategy("file_system")
 # The sender thinks it is sending to a real network with real decoders, but we intercept and simply calculate its test performance here
 # In future tests, we use the same sender without modification, but instead we will have many and maintain the federated model in env
 class SingleSenderSimulator():
-    def __init__(self, sender, board, server=None, live_video=False):
+    def __init__(self, sender, board, server=None, live_video=False, batch_size=5):
         #Sender does all the heavy lifting on training, we are just an interface for sender and the real world and testing
         self.sender = sender
         #A tensorboard which we will plot statitsics about the accuracy and all that of our sender
@@ -45,6 +45,7 @@ class SingleSenderSimulator():
         self.done.value = False
         self.data_q = Queue()
         self.model_q = Queue()
+        self.batch_size = batch_size
         pass
     
     #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
@@ -159,11 +160,8 @@ class SingleSenderSimulator():
                 batch_decoded_np = []
                 batch_count=0
                 print(f"writing frame: {frame_num}")
-            if self.live_video and frame_num % 30 == 0:
-                cv2.imshow("Decoded", dec_np_frame)
-                cv2.imshow("Real", frame[0].permute(2, 1, 0).numpy())
-                cv2.waitKey(1)
             frame_num+=1
+            
             #plt.imshow(dec_frame[0].permute(1, 2, 0))
             #plt.show(block=False)
             #print("Received encoded frame with loss = " + str(error.item()))

@@ -124,6 +124,7 @@ def main_online():
     parser.add_argument("--load_model", default=None, help="File for the model to load")
     parser.add_argument("--save_model", default=None, help="File to save the model")
     parser.add_argument("--live_video", action="store_true", default=False, help="Turns on the real/decoded live video feed")
+    parser.add_argument("--batch_size", type=int, default=5, help="Sets the batch size to be used in sending/receiving")
 
     args = parser.parse_args()
 
