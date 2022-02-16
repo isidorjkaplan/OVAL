@@ -105,7 +105,7 @@ class SingleSenderSimulator():
                 break
             #Perform encoding and transmit it
             encoded = self.sender.evaluate(frame).detach()
-            print(f"reading frame: {frame_num}")
+            #print(f"reading frame: {frame_num}")
             frame_num+=1
             #encoded.share_memory_()
             #frame.share_memory_()
@@ -168,7 +168,7 @@ class SingleSenderSimulator():
                     out.writeFrame(batch_decoded_np[i])
                 batch_decoded_np = []
                 batch_count=0
-                print(f"writing frame: {frame_num}")
+                #print(f"writing frame: {frame_num}")
             frame_num+=1
             
             #plt.imshow(dec_frame[0].permute(1, 2, 0))
