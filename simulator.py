@@ -135,11 +135,13 @@ class SingleSenderSimulator():
                 self.decoder.load_state_dict(self.model_q.get())
             #This is done here instead of send thread to avoid delaying critical path measurements
             # Downsampling
+            downsamples = 1
             while self.data_q.qsize() > downsample:
-                    print("downsampling...")
+                    downsamples+=1
                     frame_num+=1
                     self.data_q.get()
 
+            self.board.put(("receiver/realtime frame downsampling", (1/downsamples), frame_num)) 
             data = self.data_q.get()
             if data is None:
                 print("Video Stream Terminated")
