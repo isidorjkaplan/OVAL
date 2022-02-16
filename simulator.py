@@ -137,6 +137,7 @@ class SingleSenderSimulator():
             # Downsampling
             while self.data_q.qsize() > downsample:
                     print("downsampling...")
+                    frame_num+=1
                     self.data_q.get()
 
             data = self.data_q.get()
