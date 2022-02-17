@@ -137,6 +137,7 @@ class VideoLoader():
             self.cap.release()
 
         buf = torch.FloatTensor(buf[:fc]).permute(0, 3, 2, 1)/255.0
+        buf.requires_grad = False
 
         return buf, self.num_frames_read == self.frameCount
 

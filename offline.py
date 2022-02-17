@@ -31,7 +31,7 @@ def main_offline():
     parser.add_argument('--epochs', type=int, default=None, help='Number of epochs after which we stop training. ')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
     parser.add_argument('--batch_size', type=int, default=30, help='Number of frames per training batch')
-    parser.add_argument('--loss', default='mse', help='Loss function:  {mae, mse} ')
+    parser.add_argument('--loss', default='mse', help='Loss function:  {mae, mse, bce} ')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
     #parser.add_argument("--save_every", type=int, default=100, help="Save a copy of the model every N itterations")
     parser.add_argument("--save_model", default="data/models/offline.pt", help="File to save the model")
@@ -46,7 +46,7 @@ def main_offline():
     device = 'cuda' if args.cuda else 'cpu'
 
     #Select the loss function
-    loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss}[args.loss]
+    loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss, 'bce':nn.BCELoss()}[args.loss]
 
     #Load the model
     model = Autoencoder(video_size, save_path=args.save_model)
@@ -103,7 +103,7 @@ def main_offline():
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
             #Run the loss function
-            loss = loss_fn(frames, frames_out)
+            loss = loss_fn(frames_out, frames)
 
             loss.backward()
             optim.step()
@@ -136,7 +136,7 @@ def main_offline():
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
             
-            loss = loss_fn(frames, frames_out)
+            loss = loss_fn(frames_out, frames)
 
             valid_loss.append(loss.item())
         valid_loss = np.mean(valid_loss)
