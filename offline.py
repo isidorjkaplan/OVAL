@@ -31,13 +31,13 @@ def main_offline():
     parser.add_argument('--epochs', type=int, default=None, help='Number of epochs after which we stop training. ')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
     parser.add_argument('--batch_size', type=int, default=30, help='Number of frames per training batch')
-    parser.add_argument('--loss', default='bce', help='Loss function:  {mae, mse, bce} ')
+    parser.add_argument('--loss', default='mse', help='Loss function:  {mae, mse, bce} ')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
     #parser.add_argument("--save_every", type=int, default=100, help="Save a copy of the model every N itterations")
     parser.add_argument("--save_model", default="data/models/offline.pt", help="File to save the model")
     parser.add_argument("--max_frames", default=None, type=int, help="If specified, it will clip all videos to this many frames")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
-    parser.add_argument("--color_space", default=None, help="Specify HSV, RGB. Leave blank for no conversions")
+    parser.add_argument("--color_space", default=None, help="Specify {HSV, RGB}. Leave blank for no conversions (more efficient)")
     args = parser.parse_args()
 
     video_size = literal_eval(args.img_size)
@@ -103,6 +103,8 @@ def main_offline():
             frames = frames.to(device)
             enc_frames = model.encoder(frames)
             frames_out = model.decoder(enc_frames)
+
+            #print("Max=%g/%g, Min=%g/%g" % (torch.max(frames), torch.max(frames_out), torch.min(frames), torch.min(frames_out)))
             #Output does not exactly match size, truncate so that they are same size for loss. 
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
@@ -120,6 +122,13 @@ def main_offline():
             uncomp_size = frames.numel()
             comp_size = enc_frames.numel()*type_sizes[enc_frames.dtype]
             writer.add_scalar("Iter/train_comp_factor", uncomp_size/comp_size, iter_num)
+            #writer.add_scalar("Iter/Frames/input_min", torch.min(frames), iter_num)
+            #writer.add_scalar("Iter/Frames/input_max", torch.max(frames), iter_num)
+            writer.add_scalar("Frame/output_min", torch.min(frames_out), iter_num)
+            writer.add_scalar("Frame/output_max", torch.max(frames_out), iter_num)
+            for i in range(frames.shape[1]):
+                writer.add_scalar("Frame/Iter/MSE_Loss_Channel=%d" % i, F.mse_loss(frames_out[:,:,i], frames[:,:,i]), iter_num)
+
 
             #if iter_num % args.save_every == 0:
             #    model.save_model()
