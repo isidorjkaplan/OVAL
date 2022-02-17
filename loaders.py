@@ -167,6 +167,8 @@ class VideoDatasetLoader():
         
         self.num_frames_read = 0
         self.total_num_frames = sum([loader.frameCount for loader in self.video_loaders])
+        if self.total_num_frames == 0:
+            raise ValueError("No videos found in train/valid subdirectories")
         print("Reset video loader dataset with %d Videos" % len(self.video_loaders))
 
     def __next__(self):

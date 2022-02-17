@@ -12,20 +12,23 @@ import matplotlib.pyplot as plt
 import ctypes
 import traceback
 from skvideo.io import FFmpegWriter
+import ffmpeg
 
 
 from torch.utils.tensorboard import SummaryWriter
 
+# Fixes "too many files open" errors
+torch.multiprocessing.set_sharing_strategy("file_system")
 
 # This enviornment is used for the tests without federated learning. We are just monitoring one sender's ability to adapt
 # We will run this on many seperate videos and collect the average for test reporting in the paper
-# In this setup, we don't actually use a reciever. The sender is a black box which will take in frames we feed it 
+# In this setup, we don't actually use a receiver. The sender is a black box which will take in frames we feed it 
 # We will keep track of any information it broadcasts for the sake of monitoring the information
 # Any encoded frames it sends us, we will use it's last decoder to decode it and measure it's accuracy
 # The sender thinks it is sending to a real network with real decoders, but we intercept and simply calculate its test performance here
 # In future tests, we use the same sender without modification, but instead we will have many and maintain the federated model in env
 class SingleSenderSimulator():
-    def __init__(self, sender, board, server=None):
+    def __init__(self, sender, board, server=None, live_video=False, batch_size=5):
         #Sender does all the heavy lifting on training, we are just an interface for sender and the real world and testing
         self.sender = sender
         #A tensorboard which we will plot statitsics about the accuracy and all that of our sender
@@ -35,23 +38,24 @@ class SingleSenderSimulator():
         #We will just discard the messages once we are done without sending them anywhere, just look at them for testing evaluation
         #Later on we will modify this to support a "server" where we will actually forward the broadcasts
         self.server = server
-
+        self.live_video = live_video
         #Live decoder, we keep a copy here in the simulator since we dont know what is happening internal to sender
         self.decoder = sender.live_model.clone().decoder
         self.done = Value(ctypes.c_bool)
         self.done.value = False
         self.data_q = Queue()
         self.model_q = Queue()
+        self.batch_size = batch_size
         pass
     
     #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
     # When this returns it must have killed both the train and video thread
     # Will return some final statistics such as the overall error rate, overall network traffic, overall accuracy for the entire video
-    def start(self, video, runtime, out_file, loss_fn):
+    def start(self, video, runtime, out_file, rate, batch_size, downsample, loss_fn):
         p_train = Process(target=self.train_thread)
         p_train.start() #Start training and then go to the live video feed
 
-        p_recv = Process(target=self.recieve_thread, args=(out_file,loss_fn,))
+        p_recv = Process(target=self.receive_thread, args=(out_file,rate,batch_size,downsample,loss_fn))
         p_recv.start()
         try:
             self.video_thread(video, runtime)
@@ -93,37 +97,51 @@ class SingleSenderSimulator():
         start = time.time()
         if runtime is not None:
             stop_time = start + runtime
-        for i,(frame,done) in enumerate(video):
+        frame_num = 0
+        for i, (frame, done) in enumerate(video):
             if frame is None:
                 break
             if runtime is not None and time.time() > stop_time:
                 break
             #Perform encoding and transmit it
             encoded = self.sender.evaluate(frame).detach()
+            #print(f"reading frame: {frame_num}")
+            frame_num+=1
             #encoded.share_memory_()
             #frame.share_memory_()
             self.data_q.put((encoded, frame))
             now = time.time()
             if abs(now-start)>0.00001: #Somehow I was getting a divide by zero error?
                 self.board.put(("timing/send_fps (frames/sec)", 1/(now - start), i))
-            start = time.time()
-            #Evaluate the error on our encoding to report for testing set
-        self.done.value = True
+            start = time.time()            #Evaluate the error on our encoding to report for testing set
+        self.done.value = True # kills the train thread
         self.data_q.put(None) #Signify it is done
         print("Finished reading Video")
             
-    def recieve_thread(self, out_file, loss_fn):
-        if out_file is not None:
-            out = FFmpegWriter(out_file)
+    def receive_thread(self, out_file, rate, batch_size, downsample, loss_fn):
         frame_num = 0
         type_sizes = {torch.float16:2, torch.float32:4, torch.float64:8}
-        while not self.done.value:
+        out = None
+        if out_file is not None:
+            out = FFmpegWriter(out_file)
+        # Batch decoding
+        batch_decoded_np = []
+        batch_count = 0
+        while True:
             num_bytes = 0
             #THIS IS TOO SLOW. Must do this in another thread
             if not self.model_q.empty():
                 num_bytes += sum((p.numel()*type_sizes[p.dtype]) for p in self.decoder.parameters())
                 self.decoder.load_state_dict(self.model_q.get())
             #This is done here instead of send thread to avoid delaying critical path measurements
+            # Downsampling
+            downsamples = 1
+            while self.data_q.qsize() > downsample:
+                    downsamples+=1
+                    frame_num+=1
+                    self.data_q.get()
+
+            self.board.put(("receiver/realtime frame downsampling", (1/downsamples), frame_num)) 
             data = self.data_q.get()
             if data is None:
                 print("Video Stream Terminated")
@@ -141,24 +159,29 @@ class SingleSenderSimulator():
             #frame = self.video.get_frame(frame_num)
             error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
             #print("loss_v=%g" % error)
-            self.board.put(("reciever/realtime frame loss", error, frame_num)) 
-            self.board.put(("reciever/compression factor (original/compressed)", uncomp_bytes/num_bytes, frame_num))
+            self.board.put(("receiver/realtime frame loss", error, frame_num)) 
+            self.board.put(("receiver/compression factor (original/compressed)", uncomp_bytes/num_bytes, frame_num))
             #Live display of video 
             dec_np_frame = dec_frame[0].permute(2, 1, 0).numpy()
             dec_np_frame = np.uint8(255*dec_np_frame)
-            if out_file is not None:
-                out.writeFrame(dec_np_frame)
-            if frame_num % 30 == 0:
-                cv2.imshow("Decoded", dec_np_frame)
-                cv2.imshow("Real", frame[0].permute(2, 1, 0).numpy())
-                cv2.waitKey(1)
+            batch_count+=1
+            batch_decoded_np.append(dec_np_frame)
+            if out_file is not None and batch_count == batch_size:
+                for i in range(batch_size):
+                    out.writeFrame(batch_decoded_np[i])
+                batch_decoded_np = []
+                batch_count=0
+                #print(f"writing frame: {frame_num}")
             frame_num+=1
+            
             #plt.imshow(dec_frame[0].permute(1, 2, 0))
             #plt.show(block=False)
-            #print("Recieved encoded frame with loss = " + str(error.item()))
+            #print("Received encoded frame with loss = " + str(error.item()))
         if out_file is not None:
+            print("outfile closed")
             out.close()
-        print("Recieve thread terminated")
+        print("Receive thread terminated")
+        cv2.destroyAllWindows()
         pass
     #PRIVATE FUNCTIONS
 
