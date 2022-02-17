@@ -115,7 +115,7 @@ def main_offline():
 
             uncomp_size = frames.numel()
             comp_size = enc_frames.numel()*type_sizes[enc_frames.dtype]
-            writer.add_scalar("Iter/comp_factor", uncomp_size/comp_size)
+            writer.add_scalar("Iter/train_comp_factor", uncomp_size/comp_size, iter_num)
 
             #if iter_num % args.save_every == 0:
             #    model.save_model()
