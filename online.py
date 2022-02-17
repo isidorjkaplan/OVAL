@@ -55,7 +55,7 @@ def main_online():
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
     parser.add_argument('--enc_bytes', type=int, default=16, help="Number of bytes per encoded element. {16, 32, 64}")
     parser.add_argument('--buffer_size', type=int, default=20, help='The target buffer size in frames')
-    parser.add_argument('--loss', default='mse', help='Loss function:  {mae, mse} ')
+    parser.add_argument('--loss', default='bce', help='Loss function:  {mae, mse, bce} ')
     parser.add_argument('--out', type=str, default=None, help='The path to save the decoded video for inspection')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
     parser.add_argument("--save_model", default=None, help="File to save the model")
@@ -82,7 +82,7 @@ def main_online():
     # Download the sample video
     
     #shutil.rmtree(board)
-    loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss}[args.loss]
+    loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss, 'bce':nn.BCELoss()}[args.loss]
     device = 'cuda' if args.cuda else 'cpu'
     enc_bytes = {16:torch.float16, 32:torch.float32, 64:torch.float64}[args.enc_bytes]
     sender = arch.Sender(model, linear_reward_func, data_q, enc_bytes=enc_bytes, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)

@@ -157,7 +157,7 @@ class SingleSenderSimulator():
             #Calculat euncompressed bytes
             uncomp_bytes = frame.shape[1]*frame.shape[2]*frame.shape[3]*1 #For uncompressed, 1 byte per channel * C*L*W is total size
             #frame = self.video.get_frame(frame_num)
-            error = F.mse_loss(frame, dec_frame).detach() #Temporary, switch later     
+            error = loss_fn(dec_frame, frame).detach() #Temporary, switch later     
             #print("loss_v=%g" % error)
             self.board.put(("receiver/realtime frame loss", error, frame_num)) 
             self.board.put(("receiver/compression factor (original/compressed)", uncomp_bytes/num_bytes, frame_num))

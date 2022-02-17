@@ -31,7 +31,7 @@ def main_offline():
     parser.add_argument('--epochs', type=int, default=None, help='Number of epochs after which we stop training. ')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
     parser.add_argument('--batch_size', type=int, default=30, help='Number of frames per training batch')
-    parser.add_argument('--loss', default='mse', help='Loss function:  {mae, mse, bce} ')
+    parser.add_argument('--loss', default='bce', help='Loss function:  {mae, mse, bce} ')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
     #parser.add_argument("--save_every", type=int, default=100, help="Save a copy of the model every N itterations")
     parser.add_argument("--save_model", default="data/models/offline.pt", help="File to save the model")
