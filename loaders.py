@@ -96,7 +96,7 @@ class VideoSimulator():
 
 class VideoLoader():
     #Opens the file and initilizes the video
-    def __init__(self, filepath, batch_size, video_id=None, video_size=None, max_frames=None):
+    def __init__(self, filepath, batch_size, video_id=None, video_size=None, max_frames=None, color_convert=None):
         self.cap = cv2.VideoCapture(filepath)
         self.frameCount = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         if max_frames is not None:
@@ -111,6 +111,7 @@ class VideoLoader():
         self.video_size = video_size
         self.vid_id = video_id
         self.max_frames = None
+        self.color_convert=color_convert
         self.num_frames_read = 0
         #print("Loading Video=%s with frames=%d and size=(%d,%d)" % (filepath, self.frameCount, self.frameWidth, self.frameHeight))
 
@@ -128,6 +129,8 @@ class VideoLoader():
             ret, frame = self.cap.read()
             if self.video_size is not None: #Optionally resize to specific size
                 buf[fc] = cv2.resize(frame, self.video_size, interpolation = cv2.INTER_AREA)
+                if self.color_convert is not None:
+                    buf[fc] = cv2.cvtColor(buf[fc], self.color_convert)
             else:
                 buf[fc] = frame
             fc += 1
@@ -148,14 +151,14 @@ class VideoLoader():
 
 class VideoDatasetLoader():
     #Opens the file and initilizes the video
-    def __init__(self, directory, batch_size, video_size=None, max_frames=None):
+    def __init__(self, directory, batch_size, video_size=None, max_frames=None, color_convert=None):
         self.last_video = 0
         self.video_directory = directory
         self.video_loaders = None
         self.batch_size = batch_size
         self.max_frames = max_frames
         self.video_size = video_size
-
+        self.color_convert = color_convert
 
 
     def __iter__(self):
@@ -164,7 +167,7 @@ class VideoDatasetLoader():
     def reset(self):
         if self.video_loaders is not None:
             del self.video_loaders
-        self.video_loaders = [VideoLoader(filepath, self.batch_size, video_id=vid_id, max_frames=self.max_frames,video_size=self.video_size)  for vid_id,filepath in enumerate(glob.glob(os.path.join(self.video_directory, "*.mp4")))]
+        self.video_loaders = [VideoLoader(filepath, self.batch_size, video_id=vid_id, max_frames=self.max_frames,video_size=self.video_size, color_convert=self.color_convert)  for vid_id,filepath in enumerate(glob.glob(os.path.join(self.video_directory, "*.mp4")))]
         
         self.num_frames_read = 0
         self.total_num_frames = sum([loader.frameCount for loader in self.video_loaders])

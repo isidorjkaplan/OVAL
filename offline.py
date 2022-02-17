@@ -37,6 +37,7 @@ def main_offline():
     parser.add_argument("--save_model", default="data/models/offline.pt", help="File to save the model")
     parser.add_argument("--max_frames", default=None, type=int, help="If specified, it will clip all videos to this many frames")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
+    parser.add_argument("--color_space", default=None, help="Specify HSV, RGB. Leave blank for no conversions")
     args = parser.parse_args()
 
     video_size = literal_eval(args.img_size)
@@ -47,6 +48,9 @@ def main_offline():
 
     #Select the loss function
     loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss, 'bce':nn.BCELoss()}[args.loss]
+
+    #Get the color space conversion object
+    color_convert = getattr(cv2, "COLOR_BGR2%s" % args.color_space) if args.color_space is not None else None
 
     #Load the model
     model = Autoencoder(video_size, save_path=args.save_model)
@@ -76,8 +80,8 @@ def main_offline():
 
     type_sizes = {torch.float16:2, torch.float32:4, torch.float64:8}
 
-    train_loader = VideoDatasetLoader(os.path.join(args.video_folder, "train"), args.batch_size, max_frames=args.max_frames, video_size=video_size)
-    valid_loader = VideoDatasetLoader(os.path.join(args.video_folder, "valid"), args.batch_size, max_frames=args.max_frames, video_size=video_size)
+    train_loader = VideoDatasetLoader(os.path.join(args.video_folder, "train"), args.batch_size, max_frames=args.max_frames, video_size=video_size, color_convert=color_convert)
+    valid_loader = VideoDatasetLoader(os.path.join(args.video_folder, "valid"), args.batch_size, max_frames=args.max_frames, video_size=video_size, color_convert=color_convert)
 
     #Main training loop
     best_val_loss = float('inf')
