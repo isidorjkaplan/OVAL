@@ -74,6 +74,8 @@ def main_offline():
         arg_str = "%s**%s**: %s  \n" % (arg_str, key, str(vars(args)[key])) 
     writer.add_text("Args", arg_str)
 
+    type_sizes = {torch.float16:2, torch.float32:4, torch.float64:8}
+
     train_loader = VideoDatasetLoader(os.path.join(args.video_folder, "train"), args.batch_size, max_frames=args.max_frames, video_size=video_size)
     valid_loader = VideoDatasetLoader(os.path.join(args.video_folder, "valid"), args.batch_size, max_frames=args.max_frames, video_size=video_size)
 
@@ -95,7 +97,8 @@ def main_offline():
 
             video_num, frames = data
             frames = frames.to(device)
-            frames_out = model(frames)
+            enc_frames = model.encoder(frames)
+            frames_out = model.decoder(enc_frames)
             #Output does not exactly match size, truncate so that they are same size for loss. 
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
@@ -109,6 +112,10 @@ def main_offline():
             #Bookkeeping items
             epoch_loss.append(loss.item())
             writer.add_scalar("Iter/train_loss", loss.item(), iter_num)
+
+            uncomp_size = frames.numel()
+            comp_size = enc_frames.numel()*type_sizes[enc_frames.dtype]
+            writer.add_scalar("Iter/comp_factor", uncomp_size/comp_size)
 
             #if iter_num % args.save_every == 0:
             #    model.save_model()
