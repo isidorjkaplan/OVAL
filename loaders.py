@@ -136,6 +136,13 @@ class VideoLoader():
         if self.num_frames_read == self.frameCount:
             self.cap.release()
 
+        for i in range(len(buf)):
+            buf[i] = cv2.cvtColor(buf[i], cv2.COLOR_BGR2HSV)
+
+        #buf = cv2.cvtColor(buf, cv2.COLOR_BGR2HSV)
+        print(type(buf))
+        print(buf.shape)
+
         buf = torch.FloatTensor(buf[:fc]).permute(0, 3, 2, 1)/255.0
 
         return buf, self.num_frames_read == self.frameCount

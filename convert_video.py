@@ -63,6 +63,10 @@ def main_offline():
 
         dec_np_frame = dec_frame.permute(0, 2, 3, 1).numpy()
         dec_np_frame = np.uint8(255*dec_np_frame)
+
+        for i in range(len(dec_np_frame)):
+            dec_np_frame[i] = cv2.cvtColor(dec_np_frame[i], cv2.COLOR_BGR2HSV)
+
         writer.writeFrame(dec_np_frame)
 
     writer.close()

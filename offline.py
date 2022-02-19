@@ -98,6 +98,10 @@ def main_offline():
                 return
 
             video_num, frames = data
+            #frames = cv2.cvtColor(frame, cv2.COLOR_)
+            print(type(frames))
+            #for frame_i in range(len(frames)):
+            #    frames[frame_i] = cv2.cvtColor(frames[frame_i], cv2.COLOR_BGR2HSV)
             frames = frames.to(device)
             frames_out = model(frames)
             #Output does not exactly match size, truncate so that they are same size for loss. 
