@@ -63,19 +63,14 @@ class Encoder(nn.Module):
     def forward(self, x, hidden=None):
         assert (x.shape[2], x.shape[3]) == self.image_dim
         x = self.conv_net(x)
-        if self.has_linear:
-            x = x.view(x.shape[0], self.flatten_size)
-            if hidden is not None:
-               x, hidden = self.rnn(x, hidden)
-            else:
-               x, hidden = self.rnn(x)
-            x = self.linear_net(x)
+        x = x.view(x.shape[0], self.flatten_size)
+        if hidden is not None:
+            x, hidden = self.rnn(x, hidden)
         else:
-            x = x.view(x.shape[0], self.flatten_size)
-            if hidden is not None:
-               x, hidden = self.rnn(x, hidden)
-            else:
-               x, hidden = self.rnn(x)
+            x, hidden = self.rnn(x)
+        if self.has_linear:
+            x = self.linear_net(x)
+
         return x
 
 class Decoder(nn.Module):
@@ -102,17 +97,12 @@ class Decoder(nn.Module):
     def forward(self, x, hidden=None):
         if self.has_linear:
             x = self.linear_net(x)
-            if hidden is not None:
-               x, hidden = self.rnn(x, hidden)
-            else:
-               x, hidden = self.rnn(x)
-            x = x.view(x.shape[0], *self.conv_shape)
+            
+        if hidden is not None:
+            x, hidden = self.rnn(x, hidden)
         else:
-            if hidden is not None:
-               x, hidden = self.rnn(x, hidden)
-            else:
-               x, hidden = self.rnn(x)
-            x = x.view(x.shape[0], *self.conv_shape)
+            x, hidden = self.rnn(x)
+        x = x.view(x.shape[0], *self.conv_shape)
         x = self.conv_net(x)
         x = F.sigmoid(x)
         return x
