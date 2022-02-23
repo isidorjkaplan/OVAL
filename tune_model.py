@@ -20,7 +20,16 @@ if __name__ == "__main__":
     parser.add_argument('--loss_function', type=str, default='mse', help='Loss during training (mae, mse, bce)')
     # Number of training epochs per test run
     parser.add_argument('--num_epochs', type=int, default=10, help='Epochs during training')
-
+    # In case we have access to CUDA
+    parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
+    
     ##### MODEL PARAMETERS ######
     # These actually change the model.py file to change the model architecture
-    
+    # Encoder Convolution Layer 1
+    parser.add_argument("--l1_out_channels", type=int, default=5, help='Out channels in first encoder convolution layer')
+    parser.add_argument("--l1_stride", type=int, default=2, help='Stride in first conv layer')
+    parser.add_argument("--l1_kernel", type=int, default=2, help='Kernel size in first conv layer')
+    # Encoder Convolution Layer 2
+    parser.add_argument("--l2_out_channels", type=int, default=5, help='Out channels in second encoder convolution layer')
+    parser.add_argument("--l2_stride", type=int, default=2, help='Stride in second conv layer')
+    parser.add_argument("--l2_kernel", type=int, default=2, help='Kernel size in second conv layer')
