@@ -3,6 +3,7 @@ import os
 import subprocess
 import numpy as np
 import time
+import math
 
 # Hyperparameter tuning script for offline model training
 
@@ -59,14 +60,14 @@ if __name__ == "__main__":
     ##### RUN THE OFFLINE TRAINING, SAVING THE DATA ######
     # At the moment ignoring model params since we haven't finished the architecture yet
     # Also, make sure to put the training data in data/videos as we've been doing thus far
-    fldr = f"./{time.time_ns()}"
+    fldr = f"./{math.ceil(time.time())}"
     os.system(f"mkdir {fldr}")
     for lr in learning_rate:
         for bs in batch_size:
             os.system(f"mkdir {fldr}/lr_{lr}-bs_{bs}") # where we will store results for each individual run
             print(f"Testing with LR = {lr} and BS = {bs}")
             cmd = f"python3 offline.py --lr {lr} --batch_size {bs} --epochs {args.num_epochs}"
-            cmd += f" --save_model {fldr}/lr_{lr}-bs_{bs}"
+            cmd += f" --save_model {fldr}/lr_{lr}-bs_{bs}/model.pt"
             if args.loss_function:
                 cmd += f" --loss {args.loss_function}"
             if args.cuda:
