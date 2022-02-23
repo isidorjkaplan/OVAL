@@ -98,16 +98,23 @@ def main_offline():
             video_num, frames = data
             frames = frames.to(device)
             enc_frames, hidden = model.encoder(frames)
-            frames_out = model.decoder(enc_frames, hidden)
+            frames_out, hidden = model.decoder(enc_frames,hidden)
+            print("c1")
             #Output does not exactly match size, truncate so that they are same size for loss.
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
+            print("c2")
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
+            print("c3")
             #Run the loss function
             loss = loss_fn(frames_out, frames)
+            print("c4")
 
             loss.backward()
+            print("c5")
             optim.step()
+            print("c6")
             optim.zero_grad()
+            print("c7")
 
             #Bookkeeping items
             epoch_loss.append(loss.item())

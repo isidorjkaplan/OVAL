@@ -1,3 +1,4 @@
+from grpc import xds_channel_credentials
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
@@ -14,7 +15,7 @@ ConvSettings = namedtuple("ConvSettings", "out_channels stride kern")
 
 #TEMPORRY, WILL REPLACE WITH RYANS AUTOENCODER MODEL LATER
 class Autoencoder(nn.Module):
-    def __init__(self, image_dim, n_channels=3, save_path=None, conv_settings=[ConvSettings(5,2,2), ConvSettings(2,2,2)], linear_layers=None):
+    def __init__(self, image_dim, n_channels=3, save_path=None, conv_settings=[ConvSettings(5,2,2), ConvSettings(2,2,2), ConvSettings(2,2,2)], linear_layers=None):
         super().__init__()
         self.encoder = Encoder(image_dim, n_channels, conv_settings, linear_layers)
         self.decoder = Decoder(image_dim, n_channels, conv_settings, linear_layers, self.encoder.flatten_size, self.encoder.conv_out_shape)
@@ -52,7 +53,7 @@ class Encoder(nn.Module):
         self.conv_out_shape = self.conv_out_shape.shape[1:]
         self.has_linear = linear_layers is not None
         print(self.flatten_size)
-        self.rnn = nn.LSTM(self.flatten_size, 1, 1, batch_first=True)
+        self.rnn = nn.LSTM(self.flatten_size, self.flatten_size, 1, batch_first=True)
         if self.has_linear:
             layers = [nn.Linear(self.flatten_size, linear_layers[0])]
             [layers.extend([nn.ReLU(inplace=True), nn.Linear(linear_layers[i-1], linear_layers[i])]) for i in range(1, len(linear_layers))]
@@ -85,9 +86,9 @@ class Decoder(nn.Module):
             [layers.extend([nn.Linear(linear_layers[i], linear_layers[i-1]), nn.ReLU(inplace=True)]) for i in range(len(linear_layers)-1, 0, -1)]
             layers.extend([nn.Linear(linear_layers[0], flatten_size)])
             self.linear_net = nn.Sequential(*layers)
-
-        self.rnn = nn.LSTM(flatten_size, 1, 1, batch_first=True)
-
+        print("flatten size: ",flatten_size)
+        self.rnn = nn.LSTM(flatten_size, flatten_size, 1, batch_first=True)
+        self.flatten_size = flatten_size
         self.conv_net = []
         [self.conv_net.extend([nn.ConvTranspose2d(conv_settings[i].out_channels, conv_settings[i-1].out_channels, kernel_size=conv_settings[i].kern, stride=conv_settings[i].stride), nn.ReLU(inplace=True)]) for i in range(len(conv_settings)-1, 0, -1)]
         self.conv_net.extend([nn.ConvTranspose2d(conv_settings[0].out_channels, n_channels, kernel_size=conv_settings[0].kern, stride=conv_settings[0].stride)])
@@ -100,13 +101,19 @@ class Decoder(nn.Module):
 
     def forward(self, x, hidden=None):
         if self.has_linear:
+            print("in linear")
             x = self.linear_net(x)
+            x = x.view(x.shape[0], 1, *self.conv_shape)
+        print("decoder")
+        print(x.shape)
 
         if hidden is not None:
             x, hidden = self.rnn(x, hidden)
         else:
             x, hidden = self.rnn(x)
-        x = x.view(x.shape[0], 1, *self.conv_shape)
+        print(x.shape)
+        x = x.view(x.shape[0], *self.conv_shape)
+        print(x.shape)
         x = self.conv_net(x)
         x = F.sigmoid(x)
         return x,hidden
