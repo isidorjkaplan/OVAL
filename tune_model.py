@@ -32,6 +32,36 @@ if __name__ == "__main__":
     parser.add_argument("--l2_stride_params", type=int, default=[2,2,1], help='Stride in second conv layer: (min, max, step')
     parser.add_argument("--l2_kernel_params", type=int, default=[2,2,1], help='Kernel size in second conv layer: (min, max, step)')
 
+    args = parser.parse_args()
+
     ##### CREATE PARAMETER VECTORS ######
+    epsilon = 1e-9
+    args.lr_params[1] += epsilon
+    args.bs_params[1] += epsilon
+    args.l1_out_channels_params[1] += epsilon
+    args.l2_out_channels_params[1] += epsilon
+    args.l1_stride_params[1] += epsilon
+    args.l2_stride_params[1] += epsilon
+    args.l1_kernel_params[1] += epsilon
+    args.l2_kernel_params[1] += epsilon
+   
+    learning_rate = range(*args.lr_params)
+    batch_size = range(*args.bs_params)
+    l1_out_channels_params = range(*args.l1_out_channels_params)
+    l2_out_channels_params = range(*args.l2_out_channels_params)
+    l1_stride_params = range(*args.l1_stride_params)
+    l2_stride_params = range(*args.l2_stride_params)
+    l1_kernel_params = range(*args.l1_kernel_params)
+    l2_kernel_params = range(*args.l2_kernel_params)
 
     ##### RUN THE OFFLINE TRAINING, SAVING THE DATA ######
+    # At the moment ignoring model params since we haven't finished the architecture yet
+    # Also, make sure to put the training data in data/videos as we've been doing thus far
+    for lr in learning_rate:
+        for bs in batch_size:
+            cmd = f"python3 offline.py --lr {lr} --batch-size {bs} --epochs {args.num_epochs}"
+            if args.loss_function:
+                cmd += f" --loss {args.loss_function}"
+            if args.cuda:
+                cmd += f" --cuda"
+            os.system(cmd)  
