@@ -164,6 +164,7 @@ class SingleSenderSimulator():
             #Live display of video 
             dec_np_frame = dec_frame[0].permute(2, 1, 0).numpy()
             dec_np_frame = np.uint8(255*dec_np_frame)
+            dec_np_frame = cv2.cvtColor(dec_np_frame, cv2.COLOR_BGR2RGB)
             batch_count+=1
             batch_decoded_np.append(dec_np_frame)
             if out_file is not None and batch_count == batch_size:
