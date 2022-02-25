@@ -19,13 +19,13 @@ Watch the video it outputs to see it training in real-time.
 
 | Task Name  |  Notes | Assigned | Time (hr)  | Due  | Status (Completed, Pending, Active)  | 
 |---|---|---|---|---|---|
-| Project Idea  |   | Isidor  | 3  |  Jan 27 | Completed |
-| Architecture Design  |   | Isidor  | 3  |  Jan 27 | Completed |
+| Project Idea  | See [this document](https://1drv.ms/w/s!AvqP07DxLr0lvqkhvbLH3EY7Y_7EsA?e=g0b3MC) for my initial 10-page preposal for the idea. | Isidor  | 3  |  Jan 27 | Completed |
+| Architecture Design  | Designed the architure that can be [found here](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/documents/proposal/isidor_arch_diag.png) (Note, Adam created the visual)   | Isidor  | 3  |  Jan 27 | Completed |
 | Formal Preposal  |   | Adam  | 8 |  Feb 3 | Completed Feb 3 |
-| Online Code |   | Isidor  | 8  |  Feb 12 | Completed Feb 1 |
-| Offline Code |   | Isidor  | 6  |  Feb 12 | Completed Feb 9 |
-| Model Video Evaluator |   | Isidor  | 2  |  Feb 12 | Completed Feb 9 |
-| Model V1 |   | Isidor  | 3  |  Feb 12 | Completed Feb 9 |
+| Online Code |  Wrote all the code to implement the [Architecture Design](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/documents/proposal/isidor_arch_diag.png). Particularly [online.py](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/online.py), [simulator.py](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/simulator.py), and [architecture.py](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/architecture.py) | Isidor  | 8  |  Feb 12 | Completed Feb 1 |
+| Offline Code | Implemented [offline.py](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/offline.py) which implements offline pretraining of the model before online deployment. | Isidor  | 6  |  Feb 12 | Completed Feb 9 |
+| Model Video Evaluator | Implemented the [video_converter.py](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/convert_video.py) script to visualize the model output after offline training on an input video.  | Isidor  | 2  |  Feb 12 | Completed Feb 9 |
+| Model V1 | Implemented a tennative convolutional-only model (no LSTM)  | Isidor  | 3  |  Feb 12 | Completed Feb 9 |
 | Model V2 |   | Ryan  | 3  |  Feb 12  | Active |
 | Primitive Data Loader |   | Isidor  | 1  |  Feb 12  | Completed Feb 9 |
 | Tuning | Tune model and all related settings to try and achieve a good result  | Khantil  | 3  |  -  | Active |
