@@ -18,7 +18,7 @@ import glob, os
 from loaders import VideoLoader
 from skvideo.io import FFmpegWriter
 from ast import literal_eval
-
+import formater
 
 
 def main_offline():
@@ -31,6 +31,7 @@ def main_offline():
     parser.add_argument('--max_frames', type=int, default=None, help="Stop after fixed number of frames if set")
     parser.add_argument('--batch_size', type=int, default=30, help='Number of frames to pass through network at a time')
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this. Pass '(x,y)' ")
+    parser.add_argument("--color_space", default="bgr", help="color space used in training")
     args = parser.parse_args()
 
     #Select the device
@@ -63,6 +64,16 @@ def main_offline():
 
         dec_np_frame = dec_frame.permute(0, 3, 2, 1).numpy()
         dec_np_frame = np.uint8(255*dec_np_frame)
+
+        #for i in range(len(dec_np_frame)):
+        #    dec_np_frame[i] = cv2.cvtColor(dec_np_frame[i], cv2.COLOR_BGR2HSV)
+
+        formatter = formater.VideoFormatConverter(output_format=args.color_space)
+        dec_np_frame = formatter.decode(dec_np_frame)
+
+        for i in range(len(dec_np_frame)):
+            dec_np_frame[i] = cv2.cvtColor(dec_np_frame[i], cv2.COLOR_BGR2RGB)
+
         writer.writeFrame(dec_np_frame)
 
     writer.close()

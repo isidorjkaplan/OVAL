@@ -4,6 +4,7 @@ import numpy
 import torch
 import time
 import glob, os
+import formater
 
 #Simulates a file as being a live video stream returning rate frames per second
 class CameraVideoSimulator():
@@ -96,7 +97,7 @@ class VideoSimulator():
 
 class VideoLoader():
     #Opens the file and initilizes the video
-    def __init__(self, filepath, batch_size, video_id=None, video_size=None, max_frames=None):
+    def __init__(self, filepath, batch_size, video_id=None, video_size=None, max_frames=None, color_space = 'bgr'):
         self.cap = cv2.VideoCapture(filepath)
         self.frameCount = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         if max_frames is not None:
@@ -112,6 +113,7 @@ class VideoLoader():
         self.vid_id = video_id
         self.max_frames = None
         self.num_frames_read = 0
+        self.color_space = color_space
         #print("Loading Video=%s with frames=%d and size=(%d,%d)" % (filepath, self.frameCount, self.frameWidth, self.frameHeight))
 
     def __iter__(self):
@@ -136,6 +138,13 @@ class VideoLoader():
         if self.num_frames_read == self.frameCount:
             self.cap.release()
 
+        formatter = formater.VideoFormatConverter(output_format=self.color_space)
+        buf = formatter.encode(buf)
+
+        #buf = cv2.cvtColor(buf, cv2.COLOR_BGR2HSV)
+        print(type(buf))
+        print(buf.shape)
+
         buf = torch.FloatTensor(buf[:fc]).permute(0, 3, 2, 1)/255.0
         buf.requires_grad = False
 
@@ -148,15 +157,14 @@ class VideoLoader():
 
 class VideoDatasetLoader():
     #Opens the file and initilizes the video
-    def __init__(self, directory, batch_size, video_size=None, max_frames=None):
+    def __init__(self, directory, batch_size, video_size=None, max_frames=None, color_space="bgr"):
         self.last_video = 0
         self.video_directory = directory
         self.video_loaders = None
         self.batch_size = batch_size
         self.max_frames = max_frames
         self.video_size = video_size
-
-
+        self.color_space = color_space
 
     def __iter__(self):
         return self
@@ -164,7 +172,7 @@ class VideoDatasetLoader():
     def reset(self):
         if self.video_loaders is not None:
             del self.video_loaders
-        self.video_loaders = [VideoLoader(filepath, self.batch_size, video_id=vid_id, max_frames=self.max_frames,video_size=self.video_size)  for vid_id,filepath in enumerate(glob.glob(os.path.join(self.video_directory, "*.mp4")))]
+        self.video_loaders = [VideoLoader(filepath, self.batch_size, video_id=vid_id, max_frames=self.max_frames,video_size=self.video_size, color_space=self.color_space)  for vid_id,filepath in enumerate(glob.glob(os.path.join(self.video_directory, "*.mp4")))]
         
         self.num_frames_read = 0
         self.total_num_frames = sum([loader.frameCount for loader in self.video_loaders])
