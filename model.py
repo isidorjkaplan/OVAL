@@ -100,4 +100,5 @@ class Decoder(nn.Module):
             #    x, hidden = self.rnn(x)
             x = x.view(x.shape[0], *self.conv_shape)
         x = self.conv_net(x)
+        x = F.sigmoid(x)
         return x

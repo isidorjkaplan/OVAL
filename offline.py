@@ -35,7 +35,7 @@ def main_offline():
     parser.add_argument('--epochs', type=int, default=None, help='Number of epochs after which we stop training. ')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
     parser.add_argument('--batch_size', type=int, default=30, help='Number of frames per training batch')
-    parser.add_argument('--loss', default='mse', help='Loss function:  {mae, mse} ')
+    parser.add_argument('--loss', default='bce', help='Loss function:  {mae, mse, bce} ')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
     #parser.add_argument("--save_every", type=int, default=100, help="Save a copy of the model every N itterations")
     parser.add_argument("--save_model", default="data/models/offline.pt", help="File to save the model")
@@ -51,7 +51,7 @@ def main_offline():
     device = 'cuda' if args.cuda else 'cpu'
 
     #Select the loss function
-    loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss}[args.loss]
+    loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss, 'bce':nn.BCELoss()}[args.loss]
 
     #Load the model
     model = Autoencoder(video_size, save_path=args.save_model)
@@ -79,6 +79,7 @@ def main_offline():
         arg_str = "%s**%s**: %s  \n" % (arg_str, key, str(vars(args)[key])) 
     writer.add_text("Args", arg_str)
 
+    type_sizes = {torch.float16:2, torch.float32:4, torch.float64:8}
     train_loader = VideoDatasetLoader(os.path.join(args.video_folder, "train"), args.batch_size, max_frames=args.max_frames, video_size=video_size, color_space=args.color_space)
     valid_loader = VideoDatasetLoader(os.path.join(args.video_folder, "valid"), args.batch_size, max_frames=args.max_frames, video_size=video_size, color_space=args.color_space)
 
@@ -104,12 +105,13 @@ def main_offline():
             #for frame_i in range(len(frames)):
             #    frames[frame_i] = cv2.cvtColor(frames[frame_i], cv2.COLOR_BGR2HSV)
             frames = frames.to(device)
-            frames_out = model(frames)
+            enc_frames = model.encoder(frames)
+            frames_out = model.decoder(enc_frames)
             #Output does not exactly match size, truncate so that they are same size for loss. 
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
             #Run the loss function
-            loss = loss_fn(frames, frames_out)
+            loss = loss_fn(frames_out, frames)
 
             loss.backward()
             optim.step()
@@ -118,6 +120,10 @@ def main_offline():
             #Bookkeeping items
             epoch_loss.append(loss.item())
             writer.add_scalar("Iter/train_loss", loss.item(), iter_num)
+
+            uncomp_size = frames.numel()
+            comp_size = enc_frames.numel()*type_sizes[enc_frames.dtype]
+            writer.add_scalar("Iter/train_comp_factor", uncomp_size/comp_size, iter_num)
 
             #if iter_num % args.save_every == 0:
             #    model.save_model()
@@ -138,7 +144,7 @@ def main_offline():
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
             
-            loss = loss_fn(frames, frames_out)
+            loss = loss_fn(frames_out, frames)
 
             valid_loss.append(loss.item())
         valid_loss = np.mean(valid_loss)

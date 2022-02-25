@@ -101,12 +101,12 @@ class Sender():
         dec_frame = dec_frame[:,:,:data_mse.shape[2], :data_mse.shape[3]]
         
         #print("%s -> %s" % (str(data.shape), str(data_mse.shape)))
-        loss_train = self.loss_fn(data_mse, dec_frame) #Compute the loss
+        loss_train = self.loss_fn(dec_frame, data_mse) #Compute the loss
         self.board.put(("sender/loss_train (batch)", loss_train.detach().cpu().item(), self.iter))
 
         if self.update_threshold is not None:
             self.live_model.to(self.train_device)
-            loss_live = self.loss_fn(data_mse, self.live_model.decoder(self.live_model.encoder(data))) #Compute the loss
+            loss_live = self.loss_fn(self.live_model.decoder(self.live_model.encoder(data)), data_mse) #Compute the loss
             self.board.put(("sender/loss_live (batch)", loss_live.detach().cpu().item(), self.iter))
             
             rel_err = (loss_live/loss_train - 1).detach().cpu().item()

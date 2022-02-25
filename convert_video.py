@@ -62,7 +62,7 @@ def main_offline():
         frames = frames.to(device)
         dec_frame = model(frames).detach().cpu()
 
-        dec_np_frame = dec_frame.permute(0, 2, 3, 1).numpy()
+        dec_np_frame = dec_frame.permute(0, 3, 2, 1).numpy()
         dec_np_frame = np.uint8(255*dec_np_frame)
 
         #for i in range(len(dec_np_frame)):

@@ -19,20 +19,23 @@ Watch the video it outputs to see it training in real-time.
 
 | Task Name  |  Notes | Assigned | Time (hr)  | Due  | Status (Completed, Pending, Active)  | 
 |---|---|---|---|---|---|
-| Project Idea  |   | Isidor  | 3  |  Jan 27 | Completed |
-| Architecture Design  |   | Isidor  | 3  |  Jan 27 | Completed |
+| Project Idea  | See [this document](https://1drv.ms/w/s!AvqP07DxLr0lvqkhvbLH3EY7Y_7EsA?e=g0b3MC) for my initial 10-page preposal for the idea. | Isidor  | 3  |  Jan 27 | Completed |
+| Architecture Design  | Designed the architure that can be [found here](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/documents/proposal/isidor_arch_diag.png) (Note, Adam created the visual)   | Isidor  | 3  |  Jan 27 | Completed |
 | Formal Preposal  |   | Adam  | 8 |  Feb 3 | Completed Feb 3 |
-| Online Code |   | Isidor  | 8  |  Feb 12 | Completed Feb 1 |
-| Offline Code |   | Isidor  | 6  |  Feb 12 | Completed Feb 9 |
-| Model Video Evaluator |   | Isidor  | 2  |  Feb 12 | Completed Feb 9 |
-| Model V1 |   | Isidor  | 3  |  Feb 12 | Completed Feb 9 |
+| Online Code |  Wrote all the code to implement the [Architecture Design](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/documents/proposal/isidor_arch_diag.png). Particularly [online.py](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/online.py), [simulator.py](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/simulator.py), and [architecture.py](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/architecture.py) | Isidor  | 8  |  Feb 12 | Completed Feb 1 |
+| Offline Code | Implemented [offline.py](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/offline.py) which implements offline pretraining of the model before online deployment. | Isidor  | 6  |  Feb 12 | Completed Feb 9 |
+| Model Video Evaluator | Implemented the [video_converter.py](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/convert_video.py) script to visualize the model output after offline training on an input video.  | Isidor  | 2  |  Feb 12 | Completed Feb 9 |
+| Model V1 | Implemented a tennative convolutional-only model (no LSTM)  | Isidor  | 3  |  Feb 12 | Completed Feb 9 |
 | Model V2 |   | Ryan  | 3  |  Feb 12  | Active |
-| Primitive Data Loader |   | Isidor  | 1  |  Feb 12  | Completed Feb 9 |
+| Primitive Data Loader | Implemented [loaders.py](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/loaders.py) which reads from a folder (offline training) or single video (online training) and sends the frames. Not very efficient, should preload some frames to be more efficient later.  | Isidor  | 1  |  Feb 12  | Completed Feb 9 |
 | Tuning | Tune model and all related settings to try and achieve a good result  | Khantil  | 3  |  -  | Active |
 | Enhanced Data Loader | Must support multi-threaded pre-loading of frames to avoid stalling critical path  | Khantil  | 3  |  Feb 15  | Active |
-| Solve Online Memory Leak |  Causing online to crash after long training sessions | Adam  | -  |  Feb 12  | Active |
-| Color Spaces (Model Out) | What should model try to predict. Will help with the loss function and black/white problem. Will need to simply add a function that we call on the input image before passing into the loss with the model. Also will need to adjust the video generators to convert back to RGB before saving. This could potentially be internal to the model, it is a design desicion. | Khantil | 1  |  - | Active |
-| Color Spaces (Model In) |  We can try to perhaps show the model the image in all three color spaces. This is unrelated to the color space it predicts in. We could also make this internal to the model or the data loader, where we give the model an image in one but it converts into other color spaces internally. Either that or we could do it in the data loader where we return three tensors, one for each color space.   | Khantil  | 1  |  - | Active |
+| Noise | Add guassian noise for both offline and online training. DO NOT use noise in evaluation for offline or online.  |   | 1  |  -  | Active |
+| Solve Online Memory Leak |  Causing online to crash after long training sessions | Adam  | 6  |  Feb 15  | Completed |
+| Color Spaces | Tennative work to try fully switching which color space is used for offline | Khantil  | 3  |  Feb 17 | Complete |
+| Project Management | Organizing and directing tasks. Peer-reviewing code. |  Isidor | 3  | - | Active |
+| Color Spaces (Model Out) | What should model try to predict. Will help with the loss function and black/white problem. Will need to simply add a function that we call on the input image before passing into the loss with the model. Also will need to adjust the video generators to convert back to RGB before saving. This could potentially be internal to the model, it is a design desicion. | Khantil | 1  |  - | Completed |
+| Color Spaces (Model In) |  We can try to perhaps show the model the image in all three color spaces. This is unrelated to the color space it predicts in. We could also make this internal to the model or the data loader, where we give the model an image in one but it converts into other color spaces internally. Either that or we could do it in the data loader where we return three tensors, one for each color space.   | Khantil  | 1  |  - | Completed |
 | Transfer Learning | Try to do some tests using a variety of different pre-trained models. In some cases we may just try to explicitly use their model, whereas in others we may try to include their model in a larger one with some additonal layers.   | Ryan  | 8  |  - | Pending Model V2 |
 | Conv LSTM |  It would be really helpful if we could apply a conv LSTM to both encoder and decoder. This will allow it to have memory. This could work in collaberatin with transfer learning where we apply the conv lstm at the end on it's extracted features.   | Ryan  | 2  |  -  | Pending Model V2 |
 | Detailed Tensorboard Statistics |  We need better information about how our model is performing. Include a bunch more statistics into both offline and online (primarilly offline). We need things such as the compression ratios it achieves, the ratio of error to compression factor, etc etc. Lots of useful metrics and we need to see them. | Adam  | 3  |  Feb. 21 | Active |

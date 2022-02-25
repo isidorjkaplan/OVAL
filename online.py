@@ -55,10 +55,13 @@ def main_online():
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
     parser.add_argument('--enc_bytes', type=int, default=16, help="Number of bytes per encoded element. {16, 32, 64}")
     parser.add_argument('--buffer_size', type=int, default=20, help='The target buffer size in frames')
-    parser.add_argument('--loss', default='mse', help='Loss function:  {mae, mse} ')
+    parser.add_argument('--loss', default='bce', help='Loss function:  {mae, mse, bce} ')
     parser.add_argument('--out', type=str, default=None, help='The path to save the decoded video for inspection')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
     parser.add_argument("--save_model", default=None, help="File to save the model")
+    parser.add_argument("--live_video", action="store_true", default=False, help="Turns on the real/decoded live video feed")
+    parser.add_argument("--batch_size", type=int, default=5, help="Sets the batch size to be used in sending/receiving")
+    parser.add_argument("--downsample", type=int, default=10000, help="The buffer size of the receive queue, after which we downsample")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
 
     args = parser.parse_args()
@@ -79,17 +82,19 @@ def main_online():
     # Download the sample video
     
     #shutil.rmtree(board)
-    loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss}[args.loss]
+    loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss, 'bce':nn.BCELoss()}[args.loss]
     device = 'cuda' if args.cuda else 'cpu'
     enc_bytes = {16:torch.float16, 32:torch.float32, 64:torch.float64}[args.enc_bytes]
     sender = arch.Sender(model, linear_reward_func, data_q, enc_bytes=enc_bytes, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)
 
+    frameWidth, frameHeight = None, None
     if args.video is not None:
         video_sim = VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps, video_size=video_size)#, size=(340, 256))
     else:
-        video_sim = CameraVideoSimulator(rate=args.fps, video_size=video_size)
-    local_sim = sim.SingleSenderSimulator(sender, data_q)
-    local_sim.start(video_sim, args.stop, args.out, loss_fn)
+        video_sim = sim.CameraVideoSimulator(rate=args.fps, video_size=video_size)
+    local_sim = sim.SingleSenderSimulator(sender, data_q, live_video=args.live_video)
+    local_sim.start(video_sim, args.stop, args.out, args.fps, 5, args.downsample, loss_fn)
+    
     p.kill()
     p.join()
 
