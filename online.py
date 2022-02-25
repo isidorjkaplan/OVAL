@@ -47,7 +47,7 @@ def main_online():
     #python3 online.py --video=data/videos/train/lwt_short.mp4 --stop=60 --cuda --load_model=data/models/offline.pt --out=data/videos/out/online.mp4
     parser = argparse.ArgumentParser(description='Arguments for Online Training')
     parser.add_argument('--video', type=None, help='The path to the video to load (from current directory). If this is empty then uses the video camera instead.')
-    parser.add_argument('--lr', type=float, default=0.01, help='The learning rate for the model')
+    parser.add_argument('--lr', type=float, default=0.001, help='The learning rate for the model')
     parser.add_argument('--fps', type=float, default=40, help='The FPS to target (may be slower)')
     parser.add_argument('--update_err', type=float, default=None, help='The ratio of losses error that causes a new model to be broadcast (0-1). Leave empty to send update every itteration (faster training as well since no local eval)')
     parser.add_argument('--stop', type=float, default=None, help='Time after which we stop video')
