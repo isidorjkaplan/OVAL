@@ -97,8 +97,9 @@ def main_offline():
 
             video_num, frames = data
             frames = frames.to(device)
-            enc_frames, hidden = model.encoder(frames)
-            frames_out, hidden = model.decoder(enc_frames,hidden)
+            enc_frames = model.encoder(frames, video_num)
+            frames_out = model.decoder(enc_frames, video_num)
+            # frames_out = frames_out[:,:,-1]
             #Output does not exactly match size, truncate so that they are same size for loss.
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
