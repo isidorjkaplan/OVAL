@@ -26,7 +26,7 @@ Watch the video it outputs to see it training in real-time.
 | Offline Code | Implemented [offline.py](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/offline.py) which implements offline pretraining of the model before online deployment. | Isidor  | 6  |  Feb 12 | Completed Feb 9 |
 | Model Video Evaluator | Implemented the [video_converter.py](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/convert_video.py) script to visualize the model output after offline training on an input video.  | Isidor  | 2  |  Feb 12 | Completed Feb 9 |
 | Model V1 | Implemented a tennative convolutional-only model (no LSTM)  | Isidor  | 3  |  Feb 12 | Completed Feb 9 |
-| Model V2 | Linear LSTM implemented. Performance found to be bad. Needs ConvLSTM  | Ryan  | 3  |  Feb 12  | Active |
+| Model V2 | Linear LSTM implemented. Performance found to be bad. Needs ConvLSTM  | Ryan  | 3  |  Feb 12  | Completed Feb 12 |
 | Primitive Data Loader | Implemented [loaders.py](https://gitfront.io/r/IsidorJKaplan/66735f7a469e427f884c3c37717656a3ca7de0f5/OVAL/blob/loaders.py) which reads from a folder (offline training) or single video (online training) and sends the frames. Not very efficient, should preload some frames to be more efficient later.  | Isidor  | 1  |  Feb 12  | Completed Feb 9 |
 | Tuning | Tune model and all related settings to try and achieve a good result  | Khantil  | 3  |  -  | Active |
 | Enhanced Data Loader | Must support multi-threaded pre-loading of frames to avoid stalling critical path  | Khantil  | 3  |  Feb 15  | Active |
