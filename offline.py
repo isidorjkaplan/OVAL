@@ -76,8 +76,7 @@ def main_offline():
     writer.add_text("Model", str(model).replace("\n", "  \n"))
     arg_str = ""
     for key in vars(args):
-
-    arg_str = "%s**%s**: %s  \n" % (arg_str, key, str(vars(args)[key])) 
+        arg_str = "%s**%s**: %s  \n" % (arg_str, key, str(vars(args)[key])) 
     writer.add_text("Args", arg_str)
 
     type_sizes = {torch.float16:2, torch.float32:4, torch.float64:8}
