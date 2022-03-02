@@ -64,30 +64,35 @@ class ConvLSTM(nn.Module):
         self.convLSTMcell = ConvLSTMCell(in_channels, out_channels,
         kernel_size, padding, activation, frame_size)
 
-    def forward(self, X, seq_len):
+    def forward(self, X, hidden=None):
         # X is a frame sequence (batch_size, num_channels, seq_len, height, width)
 
         # Get the dimensions
-        batch_size, _, height, width = X.size()
+        batch_size, channels, height, width = X.size()
 
         # Initialize output
         output = torch.zeros(batch_size, self.out_channels,
         height, width, device=device)
 
-        # Initialize Hidden State
-        H = torch.zeros(batch_size, self.out_channels,
-        height, width, device=device)
+        if hidden is None:
+            # Initialize Hidden State
+            H = torch.zeros(1, self.out_channels,
+            height, width, device=device)
 
-        # Initialize Cell Input
-        C = torch.zeros(batch_size,self.out_channels,
-        height, width, device=device)
+            # Initialize Cell Input
+            C = torch.zeros(1,self.out_channels,
+            height, width, device=device)
+        else:
+            H, C = hidden
 
         # Unroll over time steps
-        for time_step in range(seq_len):
+        for time_step in range(batch_size):
+            
+            H, C = self.convLSTMcell(X[time_step,:,:,:].view(1, channels, height, width), H, C)
 
-            H, C = self.convLSTMcell(X[:,:,time_step], H, C)
+            output[time_step,:,:,:] = H
 
-            output[:,:,time_step] = H
+
         #print("entering convLSTM cell", X.shape)
         # H, C = self.convLSTMcell(X[:,:,], H, C)
 
