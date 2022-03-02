@@ -16,7 +16,7 @@ ConvSettings = namedtuple("ConvSettings", "out_channels stride kern")
 
 #TEMPORRY, WILL REPLACE WITH RYANS AUTOENCODER MODEL LATER
 class Autoencoder(nn.Module):
-    def __init__(self, image_dim, n_channels=3, save_path=None, conv_settings=[ConvSettings(5,2,2), ConvSettings(2,2,2)], linear_layers=None):
+    def __init__(self, image_dim, n_channels=3, save_path=None, conv_settings=[ConvSettings(5, 1, 3), ConvSettings(6, 2, 3), ConvSettings(8, 2, 3), ConvSettings(10, 2, 3)], linear_layers=None):
         super().__init__()
         self.encoder = Encoder(image_dim, n_channels, conv_settings, linear_layers)
         self.decoder = Decoder(image_dim, n_channels, conv_settings, linear_layers, self.encoder.flatten_size, self.encoder.conv_out_shape)
@@ -39,7 +39,7 @@ class Autoencoder(nn.Module):
         self.decoder.to(device)
 
     #TODO load_state_dict
-
+    
 class Encoder(nn.Module):
     def __init__(self, image_dim, n_channels, conv_settings, linear_layers):
         super().__init__()
@@ -53,8 +53,7 @@ class Encoder(nn.Module):
         self.flatten_size = self.conv_out_shape.numel()
         self.conv_out_shape = self.conv_out_shape.shape[1:]
         self.has_linear = linear_layers is not None
-        print(self.flatten_size)
-        # self.rnn = nn.LSTM(self.flatten_size, self.flatten_size, 1, batch_first=True)
+
         self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, 2, 3, padding=0, activation='relu', frame_size=image_dim)
 
         if self.has_linear:
@@ -63,23 +62,19 @@ class Encoder(nn.Module):
 
             self.linear_net = nn.Sequential(*layers)
 
-
     def forward(self, x, hidden=None):
         assert (x.shape[2], x.shape[3]) == self.image_dim
         x = self.conv_net(x)
-        # print(x.shape)
-        # x = x.view(x.shape[0], 1, self.flatten_size)
-        # print(x.shape)
-        if hidden is not None:
-            x = self.convLSTM(x, hidden)
-        else:
-            x = self.convLSTM(x, 0)
+        x = self.convLSTM(x, hidden if hidden is not None else 0)
 
         if self.has_linear:
-            x = self.linear_net(x)
-        print("out of convLSTM", x.shape)
+            x = self.linear_net(x.view(x.shape[0], self.flatten_size))
+
         return x
 
+
+
+        
 class Decoder(nn.Module):
     def __init__(self, image_dim, n_channels, conv_settings, linear_layers, flatten_size, conv_shape):
         super().__init__()
@@ -89,10 +84,10 @@ class Decoder(nn.Module):
             [layers.extend([nn.Linear(linear_layers[i], linear_layers[i-1]), nn.ReLU(inplace=True)]) for i in range(len(linear_layers)-1, 0, -1)]
             layers.extend([nn.Linear(linear_layers[0], flatten_size)])
             self.linear_net = nn.Sequential(*layers)
-        print("flatten size: ",flatten_size)
-        # self.rnn = nn.LSTM(flatten_size, flatten_size, 1, batch_first=True)
+
         self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, 2, 3, padding=0, activation='relu', frame_size=image_dim)
         self.flatten_size = flatten_size
+
         self.conv_net = []
         [self.conv_net.extend([nn.ConvTranspose2d(conv_settings[i].out_channels, conv_settings[i-1].out_channels, kernel_size=conv_settings[i].kern, stride=conv_settings[i].stride), nn.ReLU(inplace=True)]) for i in range(len(conv_settings)-1, 0, -1)]
         self.conv_net.extend([nn.ConvTranspose2d(conv_settings[0].out_channels, n_channels, kernel_size=conv_settings[0].kern, stride=conv_settings[0].stride)])
@@ -102,22 +97,11 @@ class Decoder(nn.Module):
         self.conv_shape = conv_shape
 
 
-
     def forward(self, x, hidden=None):
         if self.has_linear:
-            print("in linear")
             x = self.linear_net(x)
             x = x.view(x.shape[0], 1, *self.conv_shape)
-        print("decoder")
-        # print(x.shape)
-
-        if hidden is not None:
-            x = self.convLSTM(x, hidden)
-        else:
-            x = self.convLSTM(x, 0)
-        # print(x.shape)
-        # x = x.view(x.shape[0], *self.conv_shape)
-        # print(x.shape)
+        x = self.convLSTM(x, hidden if hidden is not None else 0)
         x = self.conv_net(x)
         x = F.sigmoid(x)
         return x
