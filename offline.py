@@ -76,12 +76,14 @@ def main_offline():
     writer.add_text("Model", str(model).replace("\n", "  \n"))
     arg_str = ""
     for key in vars(args):
-        arg_str = "%s**%s**: %s  \n" % (arg_str, key, str(vars(args)[key])) 
+
+    arg_str = "%s**%s**: %s  \n" % (arg_str, key, str(vars(args)[key])) 
     writer.add_text("Args", arg_str)
 
     type_sizes = {torch.float16:2, torch.float32:4, torch.float64:8}
     train_loader = VideoDatasetLoader(os.path.join(args.video_folder, "train"), args.batch_size, max_frames=args.max_frames, video_size=video_size, color_space=args.color_space)
     valid_loader = VideoDatasetLoader(os.path.join(args.video_folder, "valid"), args.batch_size, max_frames=args.max_frames, video_size=video_size, color_space=args.color_space)
+
 
     #Main training loop
     best_val_loss = float('inf')
@@ -100,14 +102,12 @@ def main_offline():
                 return
 
             video_num, frames = data
-            #frames = cv2.cvtColor(frame, cv2.COLOR_)
-            print(type(frames))
-            #for frame_i in range(len(frames)):
-            #    frames[frame_i] = cv2.cvtColor(frames[frame_i], cv2.COLOR_BGR2HSV)
+
             frames = frames.to(device)
             enc_frames = model.encoder(frames)
             frames_out = model.decoder(enc_frames)
             #Output does not exactly match size, truncate so that they are same size for loss. 
+
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
             #Run the loss function
@@ -137,13 +137,13 @@ def main_offline():
             if data is None:
                 break
             video_num, frames = data
-            
+
             frames = frames.to(device)
             frames_out = model(frames)
 
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
-            
+
             loss = loss_fn(frames_out, frames)
 
             valid_loss.append(loss.item())
