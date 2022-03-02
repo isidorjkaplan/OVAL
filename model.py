@@ -54,7 +54,7 @@ class Encoder(nn.Module):
         self.conv_out_shape = self.conv_out_shape.shape[1:]
         self.has_linear = linear_layers is not None
 
-        self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, 2, 3, padding=0, activation='relu', frame_size=image_dim)
+        self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, conv_settings[-1].out_channels, 3, padding=0, activation='relu', frame_size=image_dim)
 
         if self.has_linear:
             layers = [nn.Linear(self.flatten_size, linear_layers[0])]
@@ -72,8 +72,6 @@ class Encoder(nn.Module):
 
         return x
 
-
-
         
 class Decoder(nn.Module):
     def __init__(self, image_dim, n_channels, conv_settings, linear_layers, flatten_size, conv_shape):
@@ -85,7 +83,7 @@ class Decoder(nn.Module):
             layers.extend([nn.Linear(linear_layers[0], flatten_size)])
             self.linear_net = nn.Sequential(*layers)
 
-        self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, 2, 3, padding=0, activation='relu', frame_size=image_dim)
+        self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, conv_settings[-1].out_channels, 3, padding=0, activation='relu', frame_size=image_dim)
         self.flatten_size = flatten_size
 
         self.conv_net = []

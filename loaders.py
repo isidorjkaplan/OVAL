@@ -142,8 +142,8 @@ class VideoLoader():
         buf = formatter.encode(buf)
 
         #buf = cv2.cvtColor(buf, cv2.COLOR_BGR2HSV)
-        print(type(buf))
-        print(buf.shape)
+        #print(type(buf))
+        #print(buf.shape)
 
         buf = torch.FloatTensor(buf[:fc]).permute(0, 3, 2, 1)/255.0
         buf.requires_grad = False

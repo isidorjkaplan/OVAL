@@ -31,13 +31,13 @@ class ConvLSTMCell(nn.Module):
     def forward(self, X, H_prev, C_prev):
 
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
-        print(H_prev.shape)
-        print(X.shape, H_prev.shape)
+        #(H_prev.shape)
+        #print(X.shape, H_prev.shape)
         conv_output = self.conv(torch.cat([X, H_prev], dim=1))
 
         # Idea adapted from https://github.com/ndrplz/ConvLSTM_pytorch
         i_conv, f_conv, C_conv, o_conv = torch.chunk(conv_output, chunks=4, dim=1)
-        print("dimensions: ", i_conv.shape, self.W_ci.shape, C_prev.shape)
+        #print("dimensions: ", i_conv.shape, self.W_ci.shape, C_prev.shape)
         input_gate = torch.sigmoid(i_conv + self.W_ci * C_prev )
         forget_gate = torch.sigmoid(f_conv + self.W_cf * C_prev )
 
@@ -88,7 +88,7 @@ class ConvLSTM(nn.Module):
             H, C = self.convLSTMcell(X[:,:,time_step], H, C)
 
             output[:,:,time_step] = H
-        print("entering convLSTM cell", X.shape)
+        #print("entering convLSTM cell", X.shape)
         # H, C = self.convLSTMcell(X[:,:,], H, C)
 
         # output[:,:,0] = H
