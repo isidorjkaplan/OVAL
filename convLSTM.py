@@ -137,6 +137,7 @@ class ConvLSTM(nn.Module):
         # Implement stateful ConvLSTM
         if hidden_state is not None:
             raise NotImplementedError()
+            hidden_state = hidden
         else:
             # Since the init is done in forward. Can send image size here
             hidden_state = self._init_hidden(batch_size=b,
