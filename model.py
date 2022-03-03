@@ -54,7 +54,8 @@ class Encoder(nn.Module):
         self.conv_out_shape = self.conv_out_shape.shape[1:]
         self.has_linear = linear_layers is not None
 
-        #self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, conv_settings[-1].out_channels, 3, padding=0, activation='relu', frame_size=image_dim)
+        #def __init__(self, input_dim, hidden_dim, kernel_size, num_layers, batch_first=False, bias=True, return_all_layers=False):
+        self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, conv_settings[-1].out_channels, (3,3), num_layers=1)
 
         if self.has_linear:
             layers = [nn.Linear(self.flatten_size, linear_layers[0])]
@@ -65,12 +66,14 @@ class Encoder(nn.Module):
     def forward(self, x, hidden=None):
         assert (x.shape[2], x.shape[3]) == self.image_dim
         x = self.conv_net(x)
-        #x = self.convLSTM(x, hidden)
+
+        x, hidden = self.convLSTM(x.view(1, *x.shape), hidden)
+        x = x[-1][:,0,:,:,:]
 
         if self.has_linear:
             x = self.linear_net(x.view(x.shape[0], self.flatten_size))
 
-        return x
+        return x, hidden
 
         
 class Decoder(nn.Module):
@@ -84,6 +87,7 @@ class Decoder(nn.Module):
             self.linear_net = nn.Sequential(*layers)
 
         #self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, conv_settings[-1].out_channels, 3, padding=0, activation='relu', frame_size=image_dim)
+        self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, conv_settings[-1].out_channels, (3,3), num_layers=1)
         self.flatten_size = flatten_size
 
         self.conv_net = []
@@ -99,7 +103,10 @@ class Decoder(nn.Module):
         if self.has_linear:
             x = self.linear_net(x)
             x = x.view(x.shape[0], 1, *self.conv_shape)
-        #x = self.convLSTM(x, hidden)
+
+        x, hidden = self.convLSTM(x.view(1, *x.shape), hidden)
+        x = x[-1][:,0,:,:,:]
+
         x = self.conv_net(x)
         x = F.sigmoid(x)
-        return x
+        return x, hidden
