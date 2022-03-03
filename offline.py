@@ -90,6 +90,7 @@ def main_offline():
     for epoch in epochs_iter:
         train_loader.reset()
         valid_loader.reset()
+        train_hidden_states = [[None,None] for video in train_loader.video_loaders]
         #Training loop
         epoch_loss = []
         for data in train_loader:
@@ -103,8 +104,8 @@ def main_offline():
             video_num, frames = data
 
             frames = frames.to(device)
-            enc_frames = model.encoder(frames)
-            frames_out = model.decoder(enc_frames)
+            enc_frames, train_hidden_states[video_num][0] = model.encoder(frames, train_hidden_states[video_num][0])
+            frames_out, train_hidden_states[video_num][1] = model.decoder(enc_frames, train_hidden_states[video_num][1])
             #Output does not exactly match size, truncate so that they are same size for loss. 
 
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
