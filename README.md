@@ -43,4 +43,4 @@ Watch the video it outputs to see it training in real-time.
 | Variable Encoding | Gotta push this way down the line. If we can get a good conv model that produces a reasonable encoding and that encoding is on the larger side then we can use this to basically act as a variable sized autoencoder just on that last few layers which we will use to compress its already compressed result a variable amount. For a reward function I was thinking we try to maximize some ratio of compression factor and bit size. AKA, maximize quality per bits.   | -  | 5  |  - | Pending good results |
 | Dataset Preparation | Find 20-30 videos of maximum 5 minute length with different people in primarily seated, talking positions. Use low resolution video. Split the videos into training, validation, and test sets. | Adam | 3 | | Done  |
 | Exploring Image Representations | | Khantil | 3 | | Active  |
-| Benchmark | | Ryan | 3 | | Active  |
+| Benchmark | | Khantil | 3 | | Active  |
