@@ -3,7 +3,7 @@ import cv2
 import os
 import time
 
-from model import Autoencoder, Encoder, Decoder
+from model import Autoencoder, Encoder, Decoder, stupidEncoder
 from torch.utils.tensorboard import SummaryWriter
 
 import torchvision
@@ -55,6 +55,8 @@ def main_offline():
 
     #Load the model
     model = Autoencoder(video_size, save_path=args.save_model)
+    test_model = stupidEncoder(save_path = "data/models/test_model.pt")
+
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
         model.load_state_dict(torch.load(args.load_model))
@@ -85,6 +87,7 @@ def main_offline():
     #Main training loop
     best_val_loss = float('inf')
     iter_num = 0
+    test_count = 0
     for epoch in epochs_iter:
         train_loader.reset()
         valid_loader.reset()
@@ -105,6 +108,10 @@ def main_offline():
             #    frames[frame_i] = cv2.cvtColor(frames[frame_i], cv2.COLOR_BGR2HSV)
             frames = frames.to(device)
             frames_out = model(frames)
+
+            #test_out = test_model(frames)
+            #test_count += 1
+            
             #Output does not exactly match size, truncate so that they are same size for loss. 
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
@@ -147,6 +154,7 @@ def main_offline():
             print("Saving model: loss_v=%g", valid_loss)
             best_val_loss = valid_loss
             model.save_model()
+            test_model.save_model()
 
 
         writer.add_scalar("Epochs/train_loss", epoch_loss, epoch)

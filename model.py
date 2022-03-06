@@ -101,3 +101,26 @@ class Decoder(nn.Module):
             x = x.view(x.shape[0], *self.conv_shape)
         x = self.conv_net(x)
         return x
+
+class stupidEncoder(nn.Module):
+    def __init__(self, save_path = None):
+        super().__init__()
+        #all we have is a maxpool layer that can shrink the image 4x
+        self.halfing_pool = nn.MaxPool2d(2,2)
+        self.save_path = save_path
+    
+    def forward(self, x):
+        x = self.halfing_pool(x) #1/4
+        x = self.halfing_pool(x) #1/16
+        #x = self.halfing_pool(x) #1/64
+
+        h = 4 * x.shape[-2]
+        w = 4 * x.shape[-1]
+
+        x.resize_(x.shape[0], x.shape[1], h, w)
+
+        return x
+    
+    def save_model(self):
+        if self.save_path is not None:
+            torch.save(self.state_dict(), self.save_path)
