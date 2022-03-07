@@ -184,12 +184,12 @@ class VideoDatasetLoader():
         if len(self.video_loaders) == 0:
             return None #No videos left for this epoch, must reset
 
-        loader_num = self.last_video % len(self.video_loaders)
-        video_loader = self.video_loaders[loader_num]
+        self.last_video = (self.last_video+1) % len(self.video_loaders)
+        video_loader = self.video_loaders[self.last_video]
         vid_id = video_loader.vid_id
         frames, done = next(video_loader)
         if done:
-            del self.video_loaders[loader_num]
+            del self.video_loaders[self.last_video]
 
         self.num_frames_read += frames.shape[0]
         

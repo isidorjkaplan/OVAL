@@ -93,8 +93,10 @@ def main_offline():
         train_loader.reset()
         valid_loader.reset()
         train_hidden_states = [[None,None] for video in train_loader.video_loaders]
+        valid_hidden_states = [[None,None] for video in valid_loader.video_loaders]
         #Training loop
         epoch_loss = []
+        valid_loss = []
         for data in train_loader:
             if data is None:
                 break
@@ -123,32 +125,38 @@ def main_offline():
             epoch_loss.append(loss.item())
             writer.add_scalar("Iter/train_loss", loss.item(), iter_num)
 
-            uncomp_size = frames.numel()
-            comp_size = enc_frames.numel()*type_sizes[enc_frames.dtype]
-            writer.add_scalar("Iter/train_comp_factor", uncomp_size/comp_size, iter_num)
-
+            #uncomp_size = frames.numel()
+            #comp_size = enc_frames.numel()*type_sizes[enc_frames.dtype]
+            #writer.add_scalar("Iter/train_comp_factor", uncomp_size/comp_size, iter_num)
+            
             #if iter_num % args.save_every == 0:
             #    model.save_model()
-            print("%d: Frames=%d/%d=%d, loss_t=%g" % (iter_num, train_loader.num_frames_read, train_loader.total_num_frames, 100*train_loader.num_frames_read/train_loader.total_num_frames, loss.item()))
-            iter_num+=1
-        epoch_loss = np.mean(epoch_loss)
-
-        #Validation Tracking
-        valid_loss = []
-        for data in valid_loader:
+            
+            
+            #Evaluating a frame of validation data to score it
+            data = next(valid_loader)
             if data is None:
-                break
-            video_num, frames = data
+                valid_loader.reset()
+                valid_hidden_states = [[None,None] for video in valid_loader.video_loaders]
+                data = next(valid_loader)
+            valid_video_num, frames = data
 
             frames = frames.to(device)
-            frames_out = model(frames)
+            enc_frames, valid_hidden_states[valid_video_num][0] = model.encoder(frames, valid_hidden_states[valid_video_num][0])
+            frames_out, valid_hidden_states[valid_video_num][1] = model.decoder(enc_frames, valid_hidden_states[valid_video_num][1])
+            
 
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
+            
+            loss_v = loss_fn(frames_out, frames)
+            writer.add_scalar("Iter/valid_loss", loss_v.item(), iter_num)
 
-            loss = loss_fn(frames_out, frames)
-
-            valid_loss.append(loss.item())
+            valid_loss.append(loss_v.item())
+            print("%d: Video=%d, Frames=%d/%d=%d, loss_t=%g, loss_v=%g" % (iter_num, video_num, train_loader.num_frames_read, train_loader.total_num_frames, 100*train_loader.num_frames_read/train_loader.total_num_frames, loss.item(), loss_v.item()))
+            
+            iter_num+=1
+        epoch_loss = np.mean(epoch_loss)
         valid_loss = np.mean(valid_loss)
 
         if valid_loss < best_val_loss:
