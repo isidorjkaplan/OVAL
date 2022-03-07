@@ -22,6 +22,7 @@ import glob, os
 from loaders import VideoDatasetLoader
 from ast import literal_eval
 import subprocess
+import torch
 
 
 
@@ -38,7 +39,7 @@ def main_offline():
     parser.add_argument('--batch_size', type=int, default=30, help='Number of frames per training batch')
     parser.add_argument('--loss', default='bce', help='Loss function:  {mae, mse, bce} ')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
-    #parser.add_argument("--save_every", type=int, default=100, help="Save a copy of the model every N itterations")
+    parser.add_argument("--save_every", type=int, default=100, help="Save a copy of the model every N itterations")
     parser.add_argument("--save_model", default="data/models/offline.pt", help="File to save the model")
     parser.add_argument("--max_frames", default=None, type=int, help="If specified, it will clip all videos to this many frames")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
@@ -129,8 +130,8 @@ def main_offline():
             #comp_size = enc_frames.numel()*type_sizes[enc_frames.dtype]
             #writer.add_scalar("Iter/train_comp_factor", uncomp_size/comp_size, iter_num)
             
-            #if iter_num % args.save_every == 0:
-            #    model.save_model()
+            if iter_num % args.save_every == 0:
+                model.save_model()
             
             
             #Evaluating a frame of validation data to score it
@@ -162,6 +163,7 @@ def main_offline():
         if valid_loss < best_val_loss:
             print("Saving model: loss_v=%g", valid_loss)
             best_val_loss = valid_loss
+            torch.save(model.state_dict(), args.save_model[:-3] + "_best.pt" )
             model.save_model()
 
 
