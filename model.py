@@ -1,4 +1,4 @@
-from grpc import xds_channel_credentials
+#from grpc import xds_channel_credentials
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
