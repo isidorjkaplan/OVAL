@@ -78,6 +78,7 @@ def main_offline():
     for key in vars(args):
         arg_str = "%s**%s**: %s  \n" % (arg_str, key, str(vars(args)[key])) 
     writer.add_text("Args", arg_str)
+    writer.add_text("Git", subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip())
 
     type_sizes = {torch.float16:2, torch.float32:4, torch.float64:8}
     train_loader = VideoDatasetLoader(os.path.join(args.video_folder, "train"), args.batch_size, max_frames=args.max_frames, video_size=video_size, color_space=args.color_space)
