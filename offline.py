@@ -132,8 +132,7 @@ def main_offline():
             
             if iter_num % args.save_every == 0:
                 model.save_model()
-            
-            
+        
             #Evaluating a frame of validation data to score it
             data = next(valid_loader)
             if data is None:
