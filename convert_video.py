@@ -52,6 +52,8 @@ def main_offline():
 
     loader = VideoLoader(args.video, args.batch_size, max_frames=args.max_frames, video_size=video_size)
 
+    hidden = [None, None]
+
     for data in loader:
         if data is None:
             break
@@ -60,7 +62,9 @@ def main_offline():
         print("Perctenage Complete: %d/%d=%d" % (loader.num_frames_read, loader.frameCount, 100*loader.num_frames_read/loader.frameCount))
         
         frames = frames.to(device)
-        dec_frame = model(frames).detach().cpu()
+        enc_frames, hidden[0] = model.encoder(frames, hidden[0])
+        dec_frame, hidden[1] = model.decoder(enc_frames, hidden[1])
+        dec_frame = dec_frame.detach().cpu()
 
         dec_np_frame = dec_frame.permute(0, 3, 2, 1).numpy()
         dec_np_frame = np.uint8(255*dec_np_frame)

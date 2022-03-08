@@ -36,7 +36,7 @@ def main_offline():
     parser.add_argument('--stop', type=float, default=None, help='Time after which we stop training, done or not')
     parser.add_argument('--epochs', type=int, default=None, help='Number of epochs after which we stop training. ')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
-    parser.add_argument('--batch_size', type=int, default=30, help='Number of frames per training batch')
+    parser.add_argument('--batch_size', type=int, default=16, help='Number of frames per training batch')
     parser.add_argument('--loss', default='bce', help='Loss function:  {mae, mse, bce} ')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
     parser.add_argument("--save_every", type=int, default=100, help="Save a copy of the model every N itterations")
@@ -156,6 +156,7 @@ def main_offline():
             print("%d: Video=%d, Frames=%d/%d=%d, loss_t=%g, loss_v=%g" % (iter_num, video_num, train_loader.num_frames_read, train_loader.total_num_frames, 100*train_loader.num_frames_read/train_loader.total_num_frames, loss.item(), loss_v.item()))
             
             iter_num+=1
+            #torch.cuda.empty_cache()
         epoch_loss = np.mean(epoch_loss)
         valid_loss = np.mean(valid_loss)
 
