@@ -13,6 +13,7 @@ import numpy as np
 from collections import namedtuple
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.transforms as T
 import shutil
 import os
 import time
@@ -44,6 +45,7 @@ def main_offline():
     parser.add_argument("--max_frames", default=None, type=int, help="If specified, it will clip all videos to this many frames")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
     parser.add_argument("--color_space", default="bgr", help="the color space to use during training.")
+    parser.add_argument("--gaussian_blur", default="true", help="true, false : add gaussian blur to training data")
     args = parser.parse_args()
 
     video_size = literal_eval(args.img_size)
@@ -56,7 +58,12 @@ def main_offline():
     loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss, 'bce':nn.BCELoss()}[args.loss]
 
     #Load the model
-    model = Autoencoder(video_size, save_path=args.save_model)
+    #add gaussian blur if required
+    if args.gaussian_blur == "true":
+        model = Autoencoder(video_size, save_path=args.save_model)
+    else:
+        model = Autoencoder(video_size, gaussian_blur = False, save_path=args.save_model)
+        
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
         model.load_state_dict(torch.load(args.load_model))
