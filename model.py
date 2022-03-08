@@ -69,7 +69,9 @@ class Encoder(nn.Module):
         if hidden is not None:
             hidden = [[x.detach() for x in y] for y in hidden]
         x, hidden = self.convLSTM(x.view(1, *x.shape), hidden)
-        x = x[-1][:,0,:,:,:]
+        x = x[-1][0] #last conv layer, only one item in the batch (with a large sequence)
+        #x = x[-1][:,0,:,:,:]
+
 
         if self.has_linear:
             x = self.linear_net(x.view(x.shape[0], self.flatten_size))
@@ -104,11 +106,12 @@ class Decoder(nn.Module):
         if self.has_linear:
             x = self.linear_net(x)
             x = x.view(x.shape[0], 1, *self.conv_shape)
-
+        
         if hidden is not None:
             hidden = [[x.detach() for x in y] for y in hidden]
         x, hidden = self.convLSTM(x.view(1, *x.shape), hidden)
-        x = x[-1][:,0,:,:,:]
+        x = x[-1][0] 
+        #x = x[-1][:,0,:,:,:]
 
         x = self.conv_net(x)
         x = F.sigmoid(x)
