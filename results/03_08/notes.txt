@@ -1,0 +1,9 @@
+This was a basic model which had several layers of depth
+and contained no LSTM or transfer learning. 
+
+After around 10 hours of offline training its videos were 
+almost indistinguishable from the originals. Very good. 
+
+Its compression was only around 10x though. 
+This could likely be improved even further 
+once we incorperate memory elements into it. 
