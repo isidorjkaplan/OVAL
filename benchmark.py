@@ -46,15 +46,18 @@ class stupidEncoder(nn.Module):
         self.save_path = save_path
     
     def forward(self, x):
+        return self.decode(self.encode(x))
+
+    def encode(self, x):
         x = self.halfing_pool(x) #1/4
         x = self.halfing_pool(x) #1/16
-        #x = self.halfing_pool(x) #1/64
-
+        return x
+    
+    def decode(self, x):
         h = 4 * x.shape[-2]
         w = 4 * x.shape[-1]
 
         x.resize_(x.shape[0], x.shape[1], h, w)
-
         return x
 
 #This function will parse terminal inputs from the user and then perform offline training
@@ -89,12 +92,13 @@ def main_offline():
 
     assert (args.benchmark is None)^(args.load_model is None)
     #Load the model
+
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
         model = Autoencoder(video_size, save_path=args.save_model)
         model.load_state_dict(torch.load(args.load_model))
     else:
-        model = {"nothing":Nothing()}[args.benchmark];
+        model = {"nothing":Nothing(), "pooling":stupidEncoder()}[args.benchmark]
 
     if args.cuda:
         print("Sending model to CUDA")
@@ -148,7 +152,7 @@ def main_offline():
     
     loss = np.mean(epoch_loss)
     print("Total Test Loss: %g", loss)
-    writer.add_text("Test Loss", loss)
+    writer.add_text("Test Loss", str(loss))
 
     pass
 
