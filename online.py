@@ -30,13 +30,13 @@ def print_thread(args, data_q, model):
     writer.add_text("Model/Decoder", str(model.decoder).replace("\n", "  \n"))
     arg_str = ""
     for key in args:
-        arg_str = "%s**%s**: %s  \n" % (arg_str, key, str(args[key])) 
+        arg_str = "%s**%s**: %s  \n" % (arg_str, key, str(args[key]))
     writer.add_text("Args", arg_str)
-    
+
     while True:
         label, y, x = data_q.get()
         writer.add_scalar(label, y, x)
-        
+
 
 #This function will parse terminal inputs from the user and then perform online training
 # It will load the model from the file specified by the user inputs
@@ -71,16 +71,17 @@ def main_online():
     assert args.enc_bytes in [16, 32, 64]
 
     data_q = Queue()
-    model = Autoencoder(video_size, save_path=args.save_model)
+    num_enc_layers = 2
+    model = Autoencoder(video_size, num_enc_layers, save_path=args.save_model)
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
         model.load_state_dict(torch.load(args.load_model))
 
-        
+
     p = Process(target=print_thread, args=(vars(args), data_q,model,))
     p.start()
     # Download the sample video
-    
+
     #shutil.rmtree(board)
     loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss, 'bce':nn.BCELoss()}[args.loss]
     device = 'cuda' if args.cuda else 'cpu'
@@ -94,7 +95,7 @@ def main_online():
         video_sim = sim.CameraVideoSimulator(rate=args.fps, video_size=video_size)
     local_sim = sim.SingleSenderSimulator(sender, data_q, live_video=args.live_video)
     local_sim.start(video_sim, args.stop, args.out, args.fps, 5, args.downsample, loss_fn)
-    
+
     p.kill()
     p.join()
 

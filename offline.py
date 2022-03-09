@@ -58,7 +58,8 @@ def main_offline():
     loss_fn = loss_functions[args.loss]
 
     #Load the model
-    model = Autoencoder(video_size, save_path=args.save_model)
+    num_enc_layers = 2
+    model = Autoencoder(video_size, num_enc_layers, save_path=args.save_model)
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
         model.load_state_dict(torch.load(args.load_model))
@@ -80,7 +81,7 @@ def main_offline():
     writer.add_text("Model", str(model).replace("\n", "  \n"))
     arg_str = ""
     for key in vars(args):
-        arg_str = "%s**%s**: %s  \n" % (arg_str, key, str(vars(args)[key])) 
+        arg_str = "%s**%s**: %s  \n" % (arg_str, key, str(vars(args)[key]))
     writer.add_text("Args", arg_str)
     writer.add_text("Git", subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip())
 
@@ -117,10 +118,10 @@ def main_offline():
                 frames_to_send = frames + torch.normal(0,args.gaussian_noise, size=frames.shape)
             else:
                 frames_to_send = frames
-            
+
             enc_frames, train_hidden_states[video_num][0] = model.encoder(frames_to_send, train_hidden_states[video_num][0])
             frames_out, train_hidden_states[video_num][1] = model.decoder(enc_frames, train_hidden_states[video_num][1])
-            #Output does not exactly match size, truncate so that they are same size for loss. 
+            #Output does not exactly match size, truncate so that they are same size for loss.
 
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
@@ -140,10 +141,10 @@ def main_offline():
             #uncomp_size = frames.numel()
             #comp_size = enc_frames.numel()*type_sizes[enc_frames.dtype]
             #writer.add_scalar("Iter/train_comp_factor", uncomp_size/comp_size, iter_num)
-            
+
             if iter_num % args.save_every == 0:
                 model.save_model()
-        
+
             #Evaluating a frame of validation data to score it
             data = next(valid_loader)
             if data is None:
@@ -155,11 +156,11 @@ def main_offline():
             frames = frames.to(device)
             enc_frames, valid_hidden_states[valid_video_num][0] = model.encoder(frames, valid_hidden_states[valid_video_num][0])
             frames_out, valid_hidden_states[valid_video_num][1] = model.decoder(enc_frames, valid_hidden_states[valid_video_num][1])
-            
+
 
             frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
-            
+
             loss_v = loss_fn(frames_out, frames)
             writer.add_scalar("Iter/primary_valid_loss", loss_v.item(), iter_num)
             for loss_key in loss_functions:
@@ -167,7 +168,7 @@ def main_offline():
 
             valid_loss.append(loss_v.item())
             print("%d: Video=%d, Frames=%d/%d=%d, loss_t=%g, loss_v=%g" % (iter_num, video_num, train_loader.num_frames_read, train_loader.total_num_frames, 100*train_loader.num_frames_read/train_loader.total_num_frames, loss.item(), loss_v.item()))
-            
+
             iter_num+=1
             #torch.cuda.empty_cache()
         epoch_loss = np.mean(epoch_loss)
