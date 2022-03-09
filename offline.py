@@ -13,7 +13,6 @@ import numpy as np
 from collections import namedtuple
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision.transforms as T
 import shutil
 import os
 import time
@@ -55,13 +54,11 @@ def main_offline():
     device = 'cuda' if args.cuda else 'cpu'
 
     #Select the loss function
-    loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss, 'bce':nn.BCELoss()}[args.loss]
+    loss_functions = {'mse':F.mse_loss, 'mae':F.l1_loss, 'bce':nn.BCELoss()}
+    loss_fn = loss_functions[args.loss]
 
     #Load the model
-    #add gaussian blur if required
-
     model = Autoencoder(video_size, save_path=args.save_model)
-
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
         model.load_state_dict(torch.load(args.load_model))
@@ -136,7 +133,9 @@ def main_offline():
 
             #Bookkeeping items
             epoch_loss.append(loss.item())
-            writer.add_scalar("Iter/train_loss", loss.item(), iter_num)
+            writer.add_scalar("Iter/primary_train_loss", loss.item(), iter_num)
+            for loss_key in loss_functions:
+                writer.add_scalar("Iter_Train_Loss/%s_loss" % loss_key, loss_functions[loss_key](frames_out,frames).detach().item(), iter_num)
 
             #uncomp_size = frames.numel()
             #comp_size = enc_frames.numel()*type_sizes[enc_frames.dtype]
@@ -162,7 +161,9 @@ def main_offline():
             frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
             
             loss_v = loss_fn(frames_out, frames)
-            writer.add_scalar("Iter/valid_loss", loss_v.item(), iter_num)
+            writer.add_scalar("Iter/primary_valid_loss", loss_v.item(), iter_num)
+            for loss_key in loss_functions:
+                writer.add_scalar("Iter_Valid_Loss/valid_%s_loss" % loss_key, loss_functions[loss_key](frames_out,frames).detach().item(), iter_num)
 
             valid_loss.append(loss_v.item())
             print("%d: Video=%d, Frames=%d/%d=%d, loss_t=%g, loss_v=%g" % (iter_num, video_num, train_loader.num_frames_read, train_loader.total_num_frames, 100*train_loader.num_frames_read/train_loader.total_num_frames, loss.item(), loss_v.item()))

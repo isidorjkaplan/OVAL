@@ -10,15 +10,13 @@ from torch import nn
 import torch.nn.functional as F
 import torch.optim as optim
 from convLSTM import ConvLSTM
-import torchvision.transforms as T
 
 ConvSettings = namedtuple("ConvSettings", "out_channels stride kern")
 
 #TEMPORRY, WILL REPLACE WITH RYANS AUTOENCODER MODEL LATER
 class Autoencoder(nn.Module):
-    def __init__(self, image_dim, gaussian_blur = True, n_channels=3, save_path=None, conv_settings=[ConvSettings(6, 1, 3), ConvSettings(8, 1, 3), ConvSettings(9, 2, 3), ConvSettings(10, 2, 4), ConvSettings(10, 2, 4),ConvSettings(10, 2, 4), ConvSettings(10, 2, 3)], linear_layers=None):
+    def __init__(self, image_dim, n_channels=3, save_path=None, conv_settings=[ConvSettings(6, 1, 3), ConvSettings(8, 1, 3), ConvSettings(9, 2, 3), ConvSettings(10, 2, 4), ConvSettings(10, 2, 4),ConvSettings(10, 2, 4), ConvSettings(10, 2, 3)], linear_layers=None):
         super().__init__()
-        self.gaussian_blur = gaussian_blur
         self.encoder = Encoder(image_dim, n_channels, conv_settings, linear_layers)
         self.decoder = Decoder(image_dim, n_channels, conv_settings, linear_layers, self.encoder.flatten_size, self.encoder.conv_out_shape)
         self.save_path = save_path
@@ -71,7 +69,9 @@ class Encoder(nn.Module):
         if hidden is not None:
             hidden = [[x.detach() for x in y] for y in hidden]
         x, hidden = self.convLSTM(x.view(1, *x.shape), hidden)
-        x = x[-1][:,0,:,:,:]
+        x = x[-1][0] #last conv layer, only one item in the batch (with a large sequence)
+        #x = x[-1][:,0,:,:,:]
+
 
         if self.has_linear:
             x = self.linear_net(x.view(x.shape[0], self.flatten_size))
@@ -106,11 +106,12 @@ class Decoder(nn.Module):
         if self.has_linear:
             x = self.linear_net(x)
             x = x.view(x.shape[0], 1, *self.conv_shape)
-
+        
         if hidden is not None:
             hidden = [[x.detach() for x in y] for y in hidden]
         x, hidden = self.convLSTM(x.view(1, *x.shape), hidden)
-        x = x[-1][:,0,:,:,:]
+        x = x[-1][0] 
+        #x = x[-1][:,0,:,:,:]
 
         x = self.conv_net(x)
         x = F.sigmoid(x)
