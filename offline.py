@@ -44,7 +44,7 @@ def main_offline():
     parser.add_argument("--max_frames", default=None, type=int, help="If specified, it will clip all videos to this many frames")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
     parser.add_argument("--color_space", default="bgr", help="the color space to use during training.")
-    parser.add_argument("--gaussian_noise", default="true", help="true, false : add gaussian blur to training data")
+    parser.add_argument("--gaussian_noise", type=int, default=None, help="stdv for gaussian noise")
     args = parser.parse_args()
 
     video_size = literal_eval(args.img_size)
@@ -113,8 +113,8 @@ def main_offline():
             frames = frames.to(device)
 
             # add gaussian noise if required
-            if (args.gaussian_noise == "true"):
-                frames_to_send = frames + torch.normal(5,2, size=frames.shape)
+            if (args.gaussian_noise != None):
+                frames_to_send = frames + torch.normal(0,args.gaussian_noise, size=frames.shape)
             else:
                 frames_to_send = frames
             
