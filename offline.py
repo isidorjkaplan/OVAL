@@ -45,7 +45,7 @@ def main_offline():
     parser.add_argument("--max_frames", default=None, type=int, help="If specified, it will clip all videos to this many frames")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
     parser.add_argument("--color_space", default="bgr", help="the color space to use during training.")
-    parser.add_argument("--gaussian_blur", default="true", help="true, false : add gaussian blur to training data")
+    parser.add_argument("--gaussian_noise", default="true", help="true, false : add gaussian blur to training data")
     args = parser.parse_args()
 
     video_size = literal_eval(args.img_size)
@@ -59,11 +59,9 @@ def main_offline():
 
     #Load the model
     #add gaussian blur if required
-    if args.gaussian_blur == "true":
-        model = Autoencoder(video_size, save_path=args.save_model)
-    else:
-        model = Autoencoder(video_size, gaussian_blur = False, save_path=args.save_model)
-        
+
+    model = Autoencoder(video_size, save_path=args.save_model)
+
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
         model.load_state_dict(torch.load(args.load_model))
@@ -116,7 +114,14 @@ def main_offline():
             video_num, frames = data
 
             frames = frames.to(device)
-            enc_frames, train_hidden_states[video_num][0] = model.encoder(frames, train_hidden_states[video_num][0])
+
+            # add gaussian noise if required
+            if (args.gaussian_noise == "true"):
+                frames_to_send = frames + torch.normal(5,2, size=frames.shape)
+            else:
+                frames_to_send = frames
+            
+            enc_frames, train_hidden_states[video_num][0] = model.encoder(frames_to_send, train_hidden_states[video_num][0])
             frames_out, train_hidden_states[video_num][1] = model.decoder(enc_frames, train_hidden_states[video_num][1])
             #Output does not exactly match size, truncate so that they are same size for loss. 
 

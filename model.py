@@ -33,9 +33,6 @@ class Autoencoder(nn.Module):
             torch.save(self.state_dict(), self.save_path)
 
     def forward(self, x):
-        if (self.gaussian_blur == True):
-            gauss = T.GaussianBlur(kernel_size=(11, 11), sigma=(0.1, 0.2))
-            x = gauss(x)
         return self.decoder(self.encoder(x))
 
     def to(self, device):
