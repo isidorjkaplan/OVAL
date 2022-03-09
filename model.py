@@ -22,8 +22,8 @@ class Autoencoder(nn.Module):
         linear_layers=None
         ):
         super().__init__()
-        self.encoder = Encoder(image_dim, n_channels, conv_settings, linear_layers, num_enc_layers)
-        self.decoder = Decoder(image_dim, n_channels, conv_settings, linear_layers, self.encoder.flatten_size, self.encoder.conv_out_shape, num_enc_layers)
+        self.encoder = Encoder(image_dim, n_channels, conv_settings, linear_layers, num_enc_layers, enc_conv)
+        self.decoder = Decoder(image_dim, n_channels, conv_settings, linear_layers, self.encoder.flatten_size, self.encoder.conv_out_shape, num_enc_layers, enc_conv)
         self.save_path = save_path
 
         print(self)
@@ -67,7 +67,7 @@ class Encoder(nn.Module):
 
             self.linear_net = nn.Sequential(*layers)
         self.num_enc_layers = num_enc_layers
-        self.enc_conv = [nn.Sequential(nn.Conv2d(conv_settings[-1].out_channels,kernel_size=enc_conv[0].kern, stride=enc_conv[0].stride), nn.ReLU(inplace=True))]
+        self.enc_conv = [nn.Sequential(nn.Conv2d(conv_settings[-1].out_channels,enc_conv[0].out_channels, kernel_size=enc_conv[0].kern, stride=enc_conv[0].stride), nn.ReLU(inplace=True))]
         ##[self.enc_conv.extend([nn.ReLU(inplace=True), nn.Conv2d(enc_conv[i-1].out_channels, enc_conv[i].out_channels, kernel_size=enc_conv[i].kern, stride=enc_conv[i].stride)]) for i in range(1, len(enc_conv))]
         for i in range(1, len(enc_conv)):
             self.enc_conv.append(nn.Sequential(nn.Conv2d(enc_conv[i-1].out_channels, enc_conv[i].out_channels, kernel_size=enc_conv[i].kern, stride=enc_conv[i].stride), nn.ReLU(inplace=True)))
@@ -82,16 +82,17 @@ class Encoder(nn.Module):
         x = x[-1][0] #last conv layer, only one item in the batch (with a large sequence)
         #x = x[-1][:,0,:,:,:]
 
+        for i in range(self.num_enc_layers):
+            x = self.enc_conv[i](x)
 
         if self.has_linear:
             x = self.linear_net(x.view(x.shape[0], self.flatten_size))
-        for i in range(self.num_enc_layers):
-            x = self.enc_conv[i](x)
+
         return x, hidden
 
 
 class Decoder(nn.Module):
-    def __init__(self, image_dim, n_channels, conv_settings, linear_layers, flatten_size, conv_shape, num_enc_layers):
+    def __init__(self, image_dim, n_channels, conv_settings, linear_layers, flatten_size, conv_shape, num_enc_layers, enc_conv):
         super().__init__()
         self.has_linear = linear_layers is not None
         if self.has_linear:
@@ -112,11 +113,18 @@ class Decoder(nn.Module):
         self.image_dim = image_dim
         self.conv_shape = conv_shape
         self.num_enc_layers = num_enc_layers
+        self.upsample = list()
+        for i in range(len(enc_conv)-1, -1, -1):
+            self.upsample.append(nn.Sequential(nn.ConvTranspose2d(enc_conv[i].out_channels, enc_conv[i-1].out_channels, kernel_size=enc_conv[i].kern, stride=enc_conv[i].stride), nn.ReLU(inplace=True)))
+        self.upsample.append(nn.Sequential(nn.ConvTranspose2d(enc_conv[0].out_channels, n_channels, kernel_size=enc_conv[0].kern, stride=enc_conv[0].stride), nn.ReLU(inplace=True)))
 
     def forward(self, x, hidden=None):
         if self.has_linear:
             x = self.linear_net(x)
             x = x.view(x.shape[0], 1, *self.conv_shape)
+
+        for i in range(self.num_enc_layers, len(self.upsample)):
+            x = self.upsample[i](x)
 
         if hidden is not None:
             hidden = [[x.detach() for x in y] for y in hidden]
