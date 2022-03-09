@@ -67,8 +67,10 @@ class Encoder(nn.Module):
 
             self.linear_net = nn.Sequential(*layers)
         self.num_enc_layers = num_enc_layers
-        self.enc_conv = [nn.Conv2d(conv_settings[-1].out_channels,kernel_size=enc_conv[0].kern, stride=enc_conv[0].stride)]
-        [self.enc_conv.extend([nn.ReLU(inplace=True), nn.Conv2d(enc_conv[i-1].out_channels, enc_conv[i].out_channels, kernel_size=enc_conv[i].kern, stride=enc_conv[i].stride)]) for i in range(1, len(enc_conv))]
+        self.enc_conv = [nn.Sequential(nn.Conv2d(conv_settings[-1].out_channels,kernel_size=enc_conv[0].kern, stride=enc_conv[0].stride), nn.ReLU(inplace=True))]
+        ##[self.enc_conv.extend([nn.ReLU(inplace=True), nn.Conv2d(enc_conv[i-1].out_channels, enc_conv[i].out_channels, kernel_size=enc_conv[i].kern, stride=enc_conv[i].stride)]) for i in range(1, len(enc_conv))]
+        for i in range(1, len(enc_conv)):
+            self.enc_conv.append(nn.Sequential(nn.Conv2d(enc_conv[i-1].out_channels, enc_conv[i].out_channels, kernel_size=enc_conv[i].kern, stride=enc_conv[i].stride), nn.ReLU(inplace=True)))
 
     def forward(self, x, hidden=None):
         assert (x.shape[2], x.shape[3]) == self.image_dim
