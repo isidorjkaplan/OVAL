@@ -98,8 +98,11 @@ class SingleSenderSimulator():
         if runtime is not None:
             stop_time = start + runtime
         frame_num = 0
-        for i, (frame, done) in enumerate(video):
-            if frame is None:
+        for i, data in enumerate(video):
+            if data is None:
+                break
+            (frame, done) = data
+            if done:
                 break
             if runtime is not None and time.time() > stop_time:
                 break
@@ -127,6 +130,8 @@ class SingleSenderSimulator():
         # Batch decoding
         batch_decoded_np = []
         batch_count = 0
+
+        decode_hidden = None
         while True:
             num_bytes = 0
             #THIS IS TOO SLOW. Must do this in another thread
@@ -150,7 +155,8 @@ class SingleSenderSimulator():
 
             num_bytes += encoded.numel()*type_sizes[encoded.dtype] #Check what type was used on network
             encoded = encoded.type(frame.dtype) #We can now upscale its type back to 32 bit for evaluation
-            dec_frame = self.decoder(encoded).detach()
+            dec_frame, decode_hidden = self.decoder(encoded, decode_hidden)
+            dec_frame = dec_frame.detach()
             #Due to some funny effects not always the same size so truncate to the smaller one
             frame = frame[:,:,:dec_frame.shape[2], :dec_frame.shape[3]] #Due to conv fringing, not same size. Almost same size. Just cut
             dec_frame = dec_frame[:,:,:frame.shape[2],:frame.shape[3]]

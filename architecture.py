@@ -36,6 +36,8 @@ class Sender():
         self.max_buffer_size = max_buffer_size
         self.loss_fn = loss_fn
 
+        self.eval_hidden = None
+
         self.board = board
         self.live_device = live_device
         self.train_device = train_device
@@ -56,7 +58,7 @@ class Sender():
         #LOCAL VARIABLES
         self.buffer = []
         #The hidden state of our LSTM. Will carry over even as we switch active models. Used for the real-time frames
-        self.hidden = None
+        self.train_hidden = [None, None]
         #Train model is the one that we are actively training. Periodicailly we set live_model = train_model with a broadcast
         if self.update_threshold is not None:
             self.train_model = self.live_model.clone()
@@ -95,7 +97,8 @@ class Sender():
 
 
         self.train_model.to(self.train_device)
-        dec_frame = self.train_model.decoder(self.train_model.encoder(data))
+        dec_frame, self.train_hidden[0] = self.train_model.encoder(data, self.train_hidden[0])
+        dec_frame, self.train_hidden[1] = self.train_model.decoder(dec_frame, self.train_hidden[1])
         #Truncate to proper size
         data_mse = data[:,:,:dec_frame.shape[2], :dec_frame.shape[3]] #Due to conv fringing, not same size. Almost same size. Just cut
         dec_frame = dec_frame[:,:,:data_mse.shape[2], :data_mse.shape[3]]
@@ -152,13 +155,14 @@ class Sender():
     def evaluate(self, frame):
         #Save value onto our training buffer
         #frame.share_memory_()
-        self.train_q.put(frame)
         self.live_model.to(self.live_device)
         if not self.model_q.empty():
             self.live_model.encoder.load_state_dict(self.model_q.get())
             self.live_model.to(self.live_device)
         #Actually run the encoder on the frame
-        enc_state = self.live_model.encoder(frame.to(self.live_device)).cpu()
+        enc_state, self.eval_hidden = self.live_model.encoder(frame.to(self.live_device), self.eval_hidden)
+        self.train_q.put(frame)
+        enc_state = enc_state.cpu()
         torch.cuda.empty_cache()
 
         return enc_state.type(self.enc_bytes)
