@@ -44,7 +44,7 @@ def main_offline():
     parser.add_argument("--max_frames", default=None, type=int, help="If specified, it will clip all videos to this many frames")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
     parser.add_argument("--color_space", default="bgr", help="the color space to use during training.")
-    parser.add_argument("--gaussian_noise", type=int, default=None, help="stdv for gaussian noise")
+    parser.add_argument("--gaussian_noise", type=float, default=None, help="stdv for gaussian noise (note input on range [0,1] so make this small")
     args = parser.parse_args()
 
     video_size = literal_eval(args.img_size)
@@ -113,11 +113,8 @@ def main_offline():
             frames = frames.to(device)
 
             # add gaussian noise if required
-            if (args.gaussian_noise != None):
-                frames_to_send = frames + torch.normal(0,args.gaussian_noise, size=frames.shape)
-            else:
-                frames_to_send = frames
-            
+            frames_to_send = frames + torch.normal(0,args.gaussian_noise, size=frames.shape).to(device) if args.gaussian_noise is not None else frames
+
             enc_frames, train_hidden_states[video_num][0] = model.encoder(frames_to_send, train_hidden_states[video_num][0])
             frames_out, train_hidden_states[video_num][1] = model.decoder(enc_frames, train_hidden_states[video_num][1])
             #Output does not exactly match size, truncate so that they are same size for loss. 
