@@ -172,7 +172,8 @@ class SingleSenderSimulator():
             dec_np_frame = np.uint8(255*dec_np_frame)
             dec_np_frame = cv2.cvtColor(dec_np_frame, cv2.COLOR_BGR2RGB)
             batch_count+=1
-            batch_decoded_np.append(dec_np_frame)
+            if (out_file is not None):
+                batch_decoded_np.append(dec_np_frame)
             if out_file is not None and batch_count == batch_size:
                 for i in range(batch_size):
                     out.writeFrame(batch_decoded_np[i])

@@ -62,6 +62,7 @@ class Sender():
         #Train model is the one that we are actively training. Periodicailly we set live_model = train_model with a broadcast
         if self.update_threshold is not None:
             self.train_model = self.live_model.clone()
+            self.live_hidden = [None,None]
         else:
             self.train_model = self.live_model #only one model
         params = list(self.train_model.encoder.parameters()) +  list(self.train_model.decoder.parameters())
@@ -109,7 +110,9 @@ class Sender():
 
         if self.update_threshold is not None:
             self.live_model.to(self.train_device)
-            loss_live = self.loss_fn(self.live_model.decoder(self.live_model.encoder(data)), data_mse) #Compute the loss
+            x, self.live_hidden[0] = self.live_model.encoder(data, self.live_hidden[0])
+            x, self.live_hidden[1] = self.live_model.decoder(x, self.live_hidden[1])
+            loss_live = self.loss_fn(x, data_mse) #Compute the loss
             self.board.put(("sender/loss_live (batch)", loss_live.detach().cpu().item(), self.iter))
             
             rel_err = (loss_live/loss_train - 1).detach().cpu().item()
