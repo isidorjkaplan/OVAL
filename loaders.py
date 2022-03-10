@@ -48,7 +48,7 @@ class CameraVideoSimulator():
         if sleep_time > 0:
             time.sleep(sleep_time)
         #If negative this should have arrived already and we are behind so just go so time gets earlier
-        self.last_frame_time = now + sleep_time
+        self.last_frame_time = time.time()
         #Return value
         return frame
 
@@ -90,7 +90,7 @@ class VideoSimulator():
         if sleep_time > 0:
             time.sleep(sleep_time)
         #If negative this should have arrived already and we are behind so just go so time gets earlier
-        self.last_frame_time = now + sleep_time
+        self.last_frame_time = time.time()
         #Return value
         return frame
 
