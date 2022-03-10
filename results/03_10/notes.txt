@@ -1,0 +1,2 @@
+This failed misreablly. At first I thought it was the LSTM, but now I think the problem
+was that it was trying to compress way too agressively. It was a 200x compression factor. 
