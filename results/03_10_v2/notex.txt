@@ -1,0 +1,5 @@
+This was a second run with the LSTM. The model is way too complicated to actually learn properly. 
+The LSTM causes a huge bottleneck by requiring seqential execution and not fully utilizing the GPU
+
+The slowdown causes it to go through only 1 epoch every 2 hours instead of about 4. 
+Its training is not converging well and its time to give up on the LSTM
