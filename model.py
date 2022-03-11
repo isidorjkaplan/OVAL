@@ -15,7 +15,7 @@ ConvSettings = namedtuple("ConvSettings", "out_channels stride kern")
 
 #TEMPORRY, WILL REPLACE WITH RYANS AUTOENCODER MODEL LATER
 class Autoencoder(nn.Module):
-    def __init__(self, image_dim, n_channels=3, save_path=None, conv_settings=[ConvSettings(6, 1, 3), ConvSettings(9, 2, 5), ConvSettings(10, 2, 4), ConvSettings(10, 2, 4),ConvSettings(10, 2, 4)], linear_layers=None, use_lstm=False):
+    def __init__(self, image_dim, n_channels=3, save_path=None, conv_settings=[ConvSettings(6, 1, 3), ConvSettings(7,1,3), ConvSettings(9, 2, 5), ConvSettings(12, 2, 4), ConvSettings(14, 2, 4),ConvSettings(17, 2, 4), ConvSettings(20,2,4)], linear_layers=None, use_lstm=False):
         super().__init__()
         self.encoder = Encoder(image_dim, n_channels, conv_settings, linear_layers, use_lstm)
         self.decoder = Decoder(image_dim, n_channels, conv_settings, linear_layers, self.encoder.flatten_size, self.encoder.conv_out_shape, use_lstm)
