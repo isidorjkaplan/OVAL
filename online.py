@@ -92,10 +92,10 @@ def main_online():
 
     frameWidth, frameHeight = None, None
     if args.video is not None:
-        video_sim = VideoSimulator(args.video, log_dir=args.log_dir, repeat=args.repeat_video, rate=args.fps, video_size=video_size)#, size=(340, 256))
+        video_sim = VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps, video_size=video_size)#, size=(340, 256))
     else:
         video_sim = sim.CameraVideoSimulator(rate=args.fps, video_size=video_size)
-    local_sim = sim.SingleSenderSimulator(sender, data_q, live_video=args.live_video)
+    local_sim = sim.SingleSenderSimulator(sender, data_q, log_dir=args.log_dir, live_video=args.live_video)
     local_sim.start(video_sim, args.stop, args.out, args.fps, 5, args.downsample, loss_fn)
     
     p.kill()
