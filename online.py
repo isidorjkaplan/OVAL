@@ -75,7 +75,8 @@ def main_online():
     model = Autoencoder(video_size, save_path=args.save_model, use_lstm=args.lstm)
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
-        model.load_state_dict(torch.load(args.load_model))
+        map_location = 'cpu' if not args.cuda else None
+        model.load_state_dict(torch.load(args.load_model,  map_location=map_location))
 
         
     p = Process(target=print_thread, args=(vars(args), data_q,model,))
