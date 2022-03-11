@@ -45,6 +45,7 @@ def main_offline():
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
     parser.add_argument("--color_space", default="bgr", help="the color space to use during training.")
     parser.add_argument("--gaussian_noise", type=float, default=None, help="stdv for gaussian noise (note input on range [0,1] so make this small")
+    parser.add_argument("--lstm", default=False, action='store_true', help="Add a conv LSTM layer. WARN: HUGE SLOWDOWN")
     args = parser.parse_args()
 
     video_size = literal_eval(args.img_size)
@@ -58,7 +59,7 @@ def main_offline():
     loss_fn = loss_functions[args.loss]
 
     #Load the model
-    model = Autoencoder(video_size, save_path=args.save_model)
+    model = Autoencoder(video_size, save_path=args.save_model, use_lstm=args.lstm)
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
         model.load_state_dict(torch.load(args.load_model))

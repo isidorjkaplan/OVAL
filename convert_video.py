@@ -32,6 +32,7 @@ def main_offline():
     parser.add_argument('--batch_size', type=int, default=30, help='Number of frames to pass through network at a time')
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this. Pass '(x,y)' ")
     parser.add_argument("--color_space", default="bgr", help="color space used in training")
+    parser.add_argument("--lstm", default=False, action='store_true', help="Add a conv LSTM layer. WARN: HUGE SLOWDOWN")
     args = parser.parse_args()
 
     #Select the device
@@ -41,7 +42,7 @@ def main_offline():
     video_size = literal_eval(args.img_size)
 
     #Load the model
-    model = Autoencoder(video_size)
+    model = Autoencoder(video_size, use_lstm=args.lstm)
     print("Loading model: %s" % args.load_model)
     model.load_state_dict(torch.load(args.load_model))
     if args.cuda:

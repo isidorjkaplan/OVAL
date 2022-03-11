@@ -63,6 +63,7 @@ def main_online():
     parser.add_argument("--batch_size", type=int, default=5, help="Sets the batch size to be used in sending/receiving")
     parser.add_argument("--downsample", type=int, default=10000, help="The buffer size of the receive queue, after which we downsample")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
+    parser.add_argument("--lstm", default=False, action='store_true', help="Add a conv LSTM layer. WARN: HUGE SLOWDOWN")
 
     args = parser.parse_args()
 
@@ -71,7 +72,7 @@ def main_online():
     assert args.enc_bytes in [16, 32, 64]
 
     data_q = Queue()
-    model = Autoencoder(video_size, save_path=args.save_model)
+    model = Autoencoder(video_size, save_path=args.save_model, use_lstm=args.lstm)
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
         model.load_state_dict(torch.load(args.load_model))

@@ -15,10 +15,10 @@ ConvSettings = namedtuple("ConvSettings", "out_channels stride kern")
 
 #TEMPORRY, WILL REPLACE WITH RYANS AUTOENCODER MODEL LATER
 class Autoencoder(nn.Module):
-    def __init__(self, image_dim, n_channels=3, save_path=None, conv_settings=[ConvSettings(6, 1, 3), ConvSettings(9, 2, 5), ConvSettings(10, 2, 4), ConvSettings(10, 2, 4),ConvSettings(10, 2, 4)], linear_layers=None):
+    def __init__(self, image_dim, n_channels=3, save_path=None, conv_settings=[ConvSettings(6, 1, 3), ConvSettings(9, 2, 5), ConvSettings(10, 2, 4), ConvSettings(10, 2, 4),ConvSettings(10, 2, 4)], linear_layers=None, use_lstm=False):
         super().__init__()
-        self.encoder = Encoder(image_dim, n_channels, conv_settings, linear_layers)
-        self.decoder = Decoder(image_dim, n_channels, conv_settings, linear_layers, self.encoder.flatten_size, self.encoder.conv_out_shape)
+        self.encoder = Encoder(image_dim, n_channels, conv_settings, linear_layers, use_lstm)
+        self.decoder = Decoder(image_dim, n_channels, conv_settings, linear_layers, self.encoder.flatten_size, self.encoder.conv_out_shape, use_lstm)
         self.save_path = save_path
 
         print(self)
@@ -40,7 +40,7 @@ class Autoencoder(nn.Module):
     #TODO load_state_dict
     
 class Encoder(nn.Module):
-    def __init__(self, image_dim, n_channels, conv_settings, linear_layers):
+    def __init__(self, image_dim, n_channels, conv_settings, linear_layers, use_lstm):
         super().__init__()
         self.conv_net = [nn.Conv2d(n_channels, conv_settings[0].out_channels, kernel_size=conv_settings[0].kern, stride=conv_settings[0].stride)]
         [self.conv_net.extend([nn.ReLU(inplace=True), nn.Conv2d(conv_settings[i-1].out_channels, conv_settings[i].out_channels, kernel_size=conv_settings[i].kern, stride=conv_settings[i].stride)]) for i in range(1, len(conv_settings))]
@@ -54,7 +54,9 @@ class Encoder(nn.Module):
         self.has_linear = linear_layers is not None
 
         #def __init__(self, input_dim, hidden_dim, kernel_size, num_layers, batch_first=False, bias=True, return_all_layers=False):
-        self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, conv_settings[-1].out_channels, (3,3), num_layers=1)
+        self.use_lstm = use_lstm
+        if use_lstm:
+            self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, conv_settings[-1].out_channels, (3,3), num_layers=1)
 
         if self.has_linear:
             layers = [nn.Linear(self.flatten_size, linear_layers[0])]
@@ -66,12 +68,12 @@ class Encoder(nn.Module):
         assert (x.shape[2], x.shape[3]) == self.image_dim
         x = self.conv_net(x)
 
-        if hidden is not None:
-            hidden = [[x.detach() for x in y] for y in hidden]
-        x, hidden = self.convLSTM(x.view(1, *x.shape), hidden)
-        x = x[-1][0] #last conv layer, only one item in the batch (with a large sequence)
-        #x = x[-1][:,0,:,:,:]
-
+        if self.use_lstm:
+            if hidden is not None:
+                hidden = [[x.detach() for x in y] for y in hidden]
+            x, hidden = self.convLSTM(x.view(1, *x.shape), hidden)
+            x = x[-1][0] #last conv layer, only one item in the batch (with a large sequence)
+            #x = x[-1][:,0,:,:,:]
 
         if self.has_linear:
             x = self.linear_net(x.view(x.shape[0], self.flatten_size))
@@ -80,7 +82,7 @@ class Encoder(nn.Module):
 
         
 class Decoder(nn.Module):
-    def __init__(self, image_dim, n_channels, conv_settings, linear_layers, flatten_size, conv_shape):
+    def __init__(self, image_dim, n_channels, conv_settings, linear_layers, flatten_size, conv_shape, use_lstm):
         super().__init__()
         self.has_linear = linear_layers is not None
         if self.has_linear:
@@ -90,7 +92,9 @@ class Decoder(nn.Module):
             self.linear_net = nn.Sequential(*layers)
 
         #self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, conv_settings[-1].out_channels, 3, padding=0, activation='relu', frame_size=image_dim)
-        self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, conv_settings[-1].out_channels, (3,3), num_layers=1)
+        self.use_lstm = use_lstm
+        if self.use_lstm:
+            self.convLSTM = ConvLSTM(conv_settings[-1].out_channels, conv_settings[-1].out_channels, (3,3), num_layers=1)
         self.flatten_size = flatten_size
 
         self.conv_net = []
@@ -107,11 +111,12 @@ class Decoder(nn.Module):
             x = self.linear_net(x)
             x = x.view(x.shape[0], 1, *self.conv_shape)
         
-        if hidden is not None:
-            hidden = [[x.detach() for x in y] for y in hidden]
-        x, hidden = self.convLSTM(x.view(1, *x.shape), hidden)
-        x = x[-1][0] 
-        #x = x[-1][:,0,:,:,:]
+        if self.use_lstm:
+            if hidden is not None:
+                hidden = [[x.detach() for x in y] for y in hidden]
+            x, hidden = self.convLSTM(x.view(1, *x.shape), hidden)
+            x = x[-1][0] 
+            #x = x[-1][:,0,:,:,:]
 
         x = self.conv_net(x)
         x = F.sigmoid(x)
