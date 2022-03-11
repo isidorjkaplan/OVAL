@@ -26,7 +26,7 @@ if __name__ == "__main__":
         f = os.path.join(args.test_folder, f)
         print(f"Running test video: {f}")
         cmd = f"python3 online.py --video {f} --load_model {args.offline_model}"
-        cmd += f" --save_model {fldr}/{f[:-4]}/online_model.pt"
+        cmd += f" --save_model {fldr}/{f[:-4]}/online_model.pt --log_dir {fldr}/{f[:-4]}"
         if args.cuda == True:
             cmd += f" --cuda"
         os.system(cmd)

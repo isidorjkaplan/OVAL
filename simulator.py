@@ -28,11 +28,12 @@ torch.multiprocessing.set_sharing_strategy("file_system")
 # The sender thinks it is sending to a real network with real decoders, but we intercept and simply calculate its test performance here
 # In future tests, we use the same sender without modification, but instead we will have many and maintain the federated model in env
 class SingleSenderSimulator():
-    def __init__(self, sender, board, server=None, live_video=False, batch_size=5):
+    def __init__(self, sender, board, log_dir=None, server=None, live_video=False, batch_size=5):
         #Sender does all the heavy lifting on training, we are just an interface for sender and the real world and testing
         self.sender = sender
         #A tensorboard which we will plot statitsics about the accuracy and all that of our sender
         self.board = board
+        self.writer = SummaryWriter(log_dir=log_dir)
         #self.writer = SummaryWriter(board)
         #At the beginning server=None. That is to say, we won't actually broadcast. 
         #We will just discard the messages once we are done without sending them anywhere, just look at them for testing evaluation
@@ -116,6 +117,7 @@ class SingleSenderSimulator():
             now = time.time()
             if abs(now-start)>0.00001: #Somehow I was getting a divide by zero error?
                 self.board.put(("timing/send_fps (frames/sec)", 1/(now - start), i))
+                self.writer.add_scalar('timing/send_fps (frames/sec)', 1/(now - start), i)
             start = time.time()            #Evaluate the error on our encoding to report for testing set
         self.done.value = True # kills the train thread
         self.data_q.put(None) #Signify it is done
@@ -146,7 +148,8 @@ class SingleSenderSimulator():
                     frame_num+=1
                     self.data_q.get()
 
-            self.board.put(("receiver/realtime frames discarded per reciever iter", downsamples, frame_num)) 
+            self.board.put(("receiver/realtime frames discarded per reciever iter", downsamples, frame_num))
+            self.writer.add_scalar("receiver/realtime frames discarded per reciever iter", downsamples, frame_num) 
             data = self.data_q.get()
             if data is None:
                 print("Video Stream Terminated")
@@ -167,6 +170,8 @@ class SingleSenderSimulator():
             #print("loss_v=%g" % error)
             self.board.put(("receiver/realtime frame loss", error, frame_num)) 
             self.board.put(("receiver/compression factor (original/compressed)", uncomp_bytes/num_bytes, frame_num))
+            self.writer("receiver/realtime frame loss", error, frame_num)
+            self.writer("receiver/compression factor (original/compressed)", uncomp_bytes/num_bytes, frame_num)
             #Live display of video 
             dec_np_frame = dec_frame[0].permute(2, 1, 0).numpy()
             dec_np_frame = np.uint8(255*dec_np_frame)
@@ -190,6 +195,7 @@ class SingleSenderSimulator():
             out.close()
         print("Receive thread terminated")
         cv2.destroyAllWindows()
+        self.writer.close()
         pass
     #PRIVATE FUNCTIONS
 

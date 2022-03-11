@@ -64,6 +64,7 @@ def main_online():
     parser.add_argument("--downsample", type=int, default=10000, help="The buffer size of the receive queue, after which we downsample")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
     parser.add_argument("--lstm", default=False, action='store_true', help="Add a conv LSTM layer. WARN: HUGE SLOWDOWN")
+    parser.add_argument("--log_dir", type=str, default=None, help='Directory to store TensorBoard logs')
 
     args = parser.parse_args()
 
@@ -91,7 +92,7 @@ def main_online():
 
     frameWidth, frameHeight = None, None
     if args.video is not None:
-        video_sim = VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps, video_size=video_size)#, size=(340, 256))
+        video_sim = VideoSimulator(args.video, log_dir=args.log_dir, repeat=args.repeat_video, rate=args.fps, video_size=video_size)#, size=(340, 256))
     else:
         video_sim = sim.CameraVideoSimulator(rate=args.fps, video_size=video_size)
     local_sim = sim.SingleSenderSimulator(sender, data_q, live_video=args.live_video)
