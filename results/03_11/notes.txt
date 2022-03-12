@@ -1,0 +1,8 @@
+This was my lingest training run yet. 
+The results were visually quie te bad. 
+I have 2 ideas about why, 1 is that I switched to MSE LOSS
+and the second is that the network might be too agressive (150x
+
+I am going to start another training run which will be identical but with the BCE loss 
+that is the one I achieved good results opn earlier
+if it performs better with BCE loss but still looks bad then I will try with a simoler model)
