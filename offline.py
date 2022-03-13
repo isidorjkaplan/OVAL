@@ -39,7 +39,7 @@ def main_offline():
     parser.add_argument('--batch_size', type=int, default=16, help='Number of frames per training batch')
     parser.add_argument('--loss', default='bce', help='Loss function:  {mae, mse, bce} ')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
-    parser.add_argument("--save_every", type=int, default=100, help="Save a copy of the model every N itterations")
+    parser.add_argument("--valid_every", type=int, default=25, help="Save a copy of the model and run validation loss every N itterations")
     parser.add_argument("--save_model", default="data/models/offline.pt", help="File to save the model")
     parser.add_argument("--max_frames", default=None, type=int, help="If specified, it will clip all videos to this many frames")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
@@ -139,31 +139,31 @@ def main_offline():
             #comp_size = enc_frames.numel()*type_sizes[enc_frames.dtype]
             #writer.add_scalar("Iter/train_comp_factor", uncomp_size/comp_size, iter_num)
             
-            if iter_num % args.save_every == 0:
+            if iter_num % args.valid_every == 0:
                 model.save_model()
         
-            #Evaluating a frame of validation data to score it
-            data = next(valid_loader)
-            if data is None:
-                valid_loader.reset()
-                valid_hidden_states = [[None,None] for video in valid_loader.video_loaders]
+                #Evaluating a frame of validation data to score it
                 data = next(valid_loader)
-            valid_video_num, frames = data
+                if data is None:
+                    valid_loader.reset()
+                    valid_hidden_states = [[None,None] for video in valid_loader.video_loaders]
+                    data = next(valid_loader)
+                valid_video_num, frames = data
 
-            frames = frames.to(device)
-            enc_frames, valid_hidden_states[valid_video_num][0] = model.encoder(frames, valid_hidden_states[valid_video_num][0])
-            frames_out, valid_hidden_states[valid_video_num][1] = model.decoder(enc_frames, valid_hidden_states[valid_video_num][1])
-            
+                frames = frames.to(device)
+                enc_frames, valid_hidden_states[valid_video_num][0] = model.encoder(frames, valid_hidden_states[valid_video_num][0])
+                frames_out, valid_hidden_states[valid_video_num][1] = model.decoder(enc_frames, valid_hidden_states[valid_video_num][1])
+                
 
-            frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
-            frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
-            
-            loss_v = loss_fn(frames_out, frames)
-            writer.add_scalar("Iter/primary_valid_loss", loss_v.item(), iter_num)
-            for loss_key in loss_functions:
-                writer.add_scalar("Iter_Valid_Loss/valid_%s_loss" % loss_key, loss_functions[loss_key](frames_out,frames).detach().item(), iter_num)
+                frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
+                frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
+                
+                loss_v = loss_fn(frames_out, frames)
+                writer.add_scalar("Iter/primary_valid_loss", loss_v.item(), iter_num)
+                for loss_key in loss_functions:
+                    writer.add_scalar("Iter_Valid_Loss/valid_%s_loss" % loss_key, loss_functions[loss_key](frames_out,frames).detach().item(), iter_num)
 
-            valid_loss.append(loss_v.item())
+                valid_loss.append(loss_v.item())
             print("%d: Video=%d, Frames=%d/%d=%d, loss_t=%g, loss_v=%g" % (iter_num, video_num, train_loader.num_frames_read, train_loader.total_num_frames, 100*train_loader.num_frames_read/train_loader.total_num_frames, loss.item(), loss_v.item()))
             
             iter_num+=1
