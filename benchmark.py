@@ -61,15 +61,32 @@ class stupidEncoder(nn.Module):
         return x
 
 class MostSignificantOnlyEncoder(nn.Module):
-    def __init__(self):
+    def __init__(self, bits_to_cut = 1):
         super().__init__()
+        self.bits_to_cut = bits_to_cut
+        self.special_nums = [2,4,8,16]
+        self.valid_cuts = [1,2,3,4]
     
     def forward(self, x):
         return self.decode(self.encode(x))
 
     def encode(self, x):
-        x = x.type(torch.float16)
-        return x
+        #how many bits to cut
+        if self.bits_to_cut in self.valid_cuts:
+            cuts_i = self.bits_to_cut
+        else:
+            cuts_i = 2
+        mod_num = self.special_nums[cuts_i - 1]
+
+        #convert x to numpy array
+        x = x.numpy()
+
+        #0 out specified bits
+        x = x - x%mod_num
+
+        #back to tensor
+        x = torch.Tensor(x)
+        return x #return
     
     def decode(self, x):
         return x
@@ -82,18 +99,42 @@ class ResizingEncoder(nn.Module):
         return self.decode(self.encode(x))
 
     def encode(self, x):
+        #convert to numpy to do resize on cv2
+        x = x.numpy()
+
+        #get required h and w and allocate empty array
         h = int(0.25 * x.shape[-2])
         w = int(0.25 * x.shape[-1])
+        newx = np.empty((x.shape[0], x.shape[1], w, h))
 
-        x.resize_(x.shape[0], x.shape[1], h, w)
-        return x
+        #fill array
+        outputsize = (h, w)
+        for i in range(x.shape[0]):
+            for j in range(x.shape[1]):
+                newx[i, j] = cv2.resize(x[i, j], outputsize)
+
+        #turn newx into tensor and return
+        newx = torch.Tensor(newx)
+        return newx
     
     def decode(self, x):
+        #convert to numpy to do resize on cv2
+        x = x.numpy()
+
+        #get required h and w and allocate empty array
         h = 4 * x.shape[-2]
         w = 4 * x.shape[-1]
+        newx = np.empty((x.shape[0], x.shape[1], w, h))
 
-        x.resize_(x.shape[0], x.shape[1], h, w)
-        return x
+        #fill array
+        outputsize = (h, w)
+        for i in range(x.shape[0]):
+            for j in range(x.shape[1]):
+                newx[i, j] = cv2.resize(x[i, j], outputsize)
+
+        #turn newx into tensor and return
+        newx = torch.Tensor(newx)
+        return newx
 
 #This function will parse terminal inputs from the user and then perform offline training
 def main_offline():
