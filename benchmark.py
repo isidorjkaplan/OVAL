@@ -60,6 +60,41 @@ class stupidEncoder(nn.Module):
         x.resize_(x.shape[0], x.shape[1], h, w)
         return x
 
+class MostSignificantOnlyEncoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        return self.decode(self.encode(x))
+
+    def encode(self, x):
+        x = x.type(torch.float16)
+        return x
+    
+    def decode(self, x):
+        return x
+
+class ResizingEncoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        return self.decode(self.encode(x))
+
+    def encode(self, x):
+        h = int(0.25 * x.shape[-2])
+        w = int(0.25 * x.shape[-1])
+
+        x.resize_(x.shape[0], x.shape[1], h, w)
+        return x
+    
+    def decode(self, x):
+        h = 4 * x.shape[-2]
+        w = 4 * x.shape[-1]
+
+        x.resize_(x.shape[0], x.shape[1], h, w)
+        return x
+
 #This function will parse terminal inputs from the user and then perform offline training
 def main_offline():
     #cd "C:/Users/isido/OneDrive/Files/School/Year 3/Winter 2022/APS360/OVAL"
@@ -74,8 +109,8 @@ def main_offline():
     parser.add_argument("--max_frames", default=None, type=int, help="If specified, it will clip all videos to this many frames")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
     parser.add_argument("--color_space", default="bgr", help="the color space to use during training.")
-    parser.add_argument("--benchmark", default=None, help="Choose which benchmark to use. {nothing, resize, cutbits}")
-    parser.add_argument('--enc_bytes', type=int, default=16, help="Number of bytes per encoded element. {16, 32, 64}")
+    parser.add_argument("--benchmark", default="nothing", help="Choose which benchmark to use. {nothing, resize, cutbits}")
+    parser.add_argument('--enc_bytes', type=int, default=32, help="Number of bytes per encoded element. {16, 32, 64}")
     args = parser.parse_args()
 
     video_size = literal_eval(args.img_size)
@@ -98,7 +133,7 @@ def main_offline():
         model = Autoencoder(video_size, save_path=args.save_model)
         model.load_state_dict(torch.load(args.load_model))
     else:
-        model = {"nothing":Nothing(), "pooling":stupidEncoder()}[args.benchmark]
+        model = {"nothing":Nothing(), "resize":ResizingEncoder(), "cutbits":MostSignificantOnlyEncoder()}[args.benchmark]
 
     if args.cuda:
         print("Sending model to CUDA")
