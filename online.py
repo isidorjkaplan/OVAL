@@ -47,9 +47,9 @@ def main_online():
     #python3 online.py --video=data/videos/train/lwt_short.mp4 --stop=60 --cuda --load_model=data/models/offline.pt --out=data/videos/out/online.mp4
     parser = argparse.ArgumentParser(description='Arguments for Online Training')
     parser.add_argument('--video', type=None, help='The path to the video to load (from current directory). If this is empty then uses the video camera instead.')
-    parser.add_argument('--lr', type=float, default=0.001, help='The learning rate for the model')
-    parser.add_argument('--fps', type=float, default=40, help='The FPS to target (may be slower)')
-    parser.add_argument('--update_err', type=float, default=None, help='The ratio of losses error that causes a new model to be broadcast (0-1). Leave empty to send update every itteration (faster training as well since no local eval)')
+    parser.add_argument('--lr', type=float, default=0.0025, help='The learning rate for the model')
+    parser.add_argument('--fps', type=float, default=15, help='The FPS to target (may be slower)')
+    parser.add_argument('--update_err', type=float, default=1, help='The ratio of losses error that causes a new model to be broadcast (0-1). Leave empty to send update every itteration (faster training as well since no local eval)')
     parser.add_argument('--stop', type=float, default=None, help='Time after which we stop video')
     parser.add_argument('--repeat_video', action="store_true", default=False, help='Repeat when the video runs out')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
@@ -61,7 +61,7 @@ def main_online():
     parser.add_argument("--save_model", default=None, help="File to save the model")
     parser.add_argument("--live_video", action="store_true", default=False, help="Turns on the real/decoded live video feed")
     parser.add_argument("--batch_size", type=int, default=5, help="Sets the batch size to be used in sending/receiving")
-    parser.add_argument("--downsample", type=int, default=10000, help="The buffer size of the receive queue, after which we downsample")
+    parser.add_argument("--downsample", type=int, default=100, help="The buffer size of the receive queue, after which we downsample")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
     parser.add_argument("--lstm", default=False, action='store_true', help="Add a conv LSTM layer. WARN: HUGE SLOWDOWN")
 
@@ -86,7 +86,7 @@ def main_online():
     loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss, 'bce':nn.BCELoss()}[args.loss]
     device = 'cuda' if args.cuda else 'cpu'
     enc_bytes = {16:torch.float16, 32:torch.float32, 64:torch.float64}[args.enc_bytes]
-    sender = arch.Sender(model, linear_reward_func, data_q, enc_bytes=enc_bytes, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,update_threshold=args.update_err, live_device=device, train_device=device)
+    sender = arch.Sender(model, linear_reward_func, data_q, enc_bytes=enc_bytes, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,min_frames=args.buffer_size, update_threshold=args.update_err, live_device=device, train_device=device)
 
     frameWidth, frameHeight = None, None
     if args.video is not None:
