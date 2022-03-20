@@ -32,10 +32,10 @@ class Nothing(nn.Module):
     def forward(self, x):
         return self.decode(self.encode(x))
     
-    def encode(self, x):
+    def encoder(self, x, hidden=None):
         return x
 
-    def decode(self, x):
+    def decoder(self, x, hidden=None):
         return x
 
 class stupidEncoder(nn.Module):
@@ -48,12 +48,12 @@ class stupidEncoder(nn.Module):
     def forward(self, x):
         return self.decode(self.encode(x))
 
-    def encode(self, x):
+    def encoder(self, x, hidden=None):
         x = self.halfing_pool(x) #1/4
         x = self.halfing_pool(x) #1/16
         return x
     
-    def decode(self, x):
+    def decoder(self, x, hidden=None):
         h = 4 * x.shape[-2]
         w = 4 * x.shape[-1]
 
@@ -61,50 +61,43 @@ class stupidEncoder(nn.Module):
         return x
 
 class MostSignificantOnlyEncoder(nn.Module):
-    def __init__(self, bits_to_cut = 1):
+    def __init__(self, bits_to_cut = 4):
         super().__init__()
         self.bits_to_cut = bits_to_cut
-        self.special_nums = [2,4,8,16]
-        self.valid_cuts = [1,2,3,4]
-    
+
     def forward(self, x):
         return self.decode(self.encode(x))
 
-    def encode(self, x):
-        #how many bits to cut
-        if self.bits_to_cut in self.valid_cuts:
-            cuts_i = self.bits_to_cut
-        else:
-            cuts_i = 2
-        mod_num = self.special_nums[cuts_i - 1]
+    def encoder(self, x, hidden=None):
 
         #convert x to numpy array
-        x = x.numpy()
+        x = (x.numpy()*255).astype(int)
 
         #0 out specified bits
-        x = x - x%mod_num
+        x = x & ~((2**self.bits_to_cut)-1)
 
         #back to tensor
         x = torch.Tensor(x)
         return x #return
     
-    def decode(self, x):
-        return x
+    def decoder(self, x, hidden=None):
+        return torch.Tensor(x.numpy().astype(float)/255)
 
 class ResizingEncoder(nn.Module):
-    def __init__(self):
+    def __init__(self, factor=5):
         super().__init__()
+        self.factor = factor
     
     def forward(self, x):
         return self.decode(self.encode(x))
 
-    def encode(self, x):
+    def encoder(self, x, hidden=None):
         #convert to numpy to do resize on cv2
         x = x.numpy()
 
         #get required h and w and allocate empty array
-        h = int(0.25 * x.shape[-2])
-        w = int(0.25 * x.shape[-1])
+        h = int((1.0/self.factor) * x.shape[-2])
+        w = int((1.0/self.factor) * x.shape[-1])
         newx = np.empty((x.shape[0], x.shape[1], w, h))
 
         #fill array
@@ -117,13 +110,13 @@ class ResizingEncoder(nn.Module):
         newx = torch.Tensor(newx)
         return newx
     
-    def decode(self, x):
+    def decoder(self, x, hidden=None):
         #convert to numpy to do resize on cv2
         x = x.numpy()
 
         #get required h and w and allocate empty array
-        h = 4 * x.shape[-2]
-        w = 4 * x.shape[-1]
+        h = self.factor * x.shape[-2]
+        w = self.factor * x.shape[-1]
         newx = np.empty((x.shape[0], x.shape[1], w, h))
 
         #fill array
@@ -137,7 +130,7 @@ class ResizingEncoder(nn.Module):
         return newx
 
 #This function will parse terminal inputs from the user and then perform offline training
-def main_offline():
+def main_benchmark():
     #cd "C:/Users/isido/OneDrive/Files/School/Year 3/Winter 2022/APS360/OVAL"
     #python3 offline.py --cuda --stop=160 --save_model=data/models/offline.pt --max_frames=100
     parser = argparse.ArgumentParser(description='Arguments for Online Training')
@@ -145,13 +138,13 @@ def main_offline():
     parser.add_argument('--lr', type=float, default=0.001, help='The learning rate for the model')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
     parser.add_argument('--batch_size', type=int, default=30, help='Number of frames per training batch')
-    parser.add_argument('--loss', default='mae', help='Loss function:  {mae, mse, bce} ')
+    parser.add_argument('--loss', default='bce', help='Loss function:  {mae, mse, bce} ')
     parser.add_argument("--load_model", default=None, help="File for the model to load")
     parser.add_argument("--max_frames", default=None, type=int, help="If specified, it will clip all videos to this many frames")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
     parser.add_argument("--color_space", default="bgr", help="the color space to use during training.")
-    parser.add_argument("--benchmark", default="nothing", help="Choose which benchmark to use. {nothing, resize, cutbits}")
-    parser.add_argument('--enc_bytes', type=int, default=32, help="Number of bytes per encoded element. {16, 32, 64}")
+    parser.add_argument("--benchmark", default=None, help="Choose which benchmark to use. {nothing, resize, cutbits}")
+    parser.add_argument('--enc_bytes', type=int, default=16, help="Number of bytes per encoded element. {16, 32, 64}")
     args = parser.parse_args()
 
     video_size = literal_eval(args.img_size)
@@ -209,12 +202,14 @@ def main_offline():
             enc_frames=enc_frames.type(enc_bytes)
             frames_out, hidden_states[video_num][1] = model.decoder(enc_frames, hidden_states[video_num][1])
         else:
-            enc_frames = model.encode(frames)
-            frames_out = model.decode(enc_frames)
+            enc_frames = model.encoder(frames)
+            frames_out = model.decoder(enc_frames)
 
         uncomp_size = frames.numel() #Each is 1 byte in RGB normally
         comp_size = enc_frames.numel()*type_sizes[enc_frames.dtype]
         writer.add_scalar("Iter/train_comp_factor", uncomp_size/comp_size, iter_num)
+        if (iter_num == 0):
+            print("Compression Factor: %g" % (uncomp_size/comp_size))
 
         frames = frames[:,:,:frames_out.shape[2], :frames_out.shape[3]]
         frames_out = frames_out[:,:,:frames.shape[2],:frames.shape[3]]
@@ -234,4 +229,4 @@ def main_offline():
 
 
 if __name__ == "__main__":
-    main_offline()
+    main_benchmark()
