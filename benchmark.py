@@ -84,7 +84,7 @@ class MostSignificantOnlyEncoder(nn.Module):
         return torch.Tensor(x.numpy().astype(float)/255)
 
 class ResizingEncoder(nn.Module):
-    def __init__(self, factor=5):
+    def __init__(self, factor=20):
         super().__init__()
         self.factor = factor
     
@@ -187,12 +187,10 @@ def main_benchmark():
     test_loader = VideoDatasetLoader(os.path.join(args.video_folder, "test"), args.batch_size, max_frames=args.max_frames, video_size=video_size, color_space=args.color_space)
     test_loader.reset()
     iter_num = 0
+    hidden_states = [[None,None] for video in test_loader.video_loaders]
     for data in test_loader:
         if data is None:
             break
-
-        hidden_states = [[None,None] for video in test_loader.video_loaders]
-
         video_num, frames = data
 
         if args.load_model is not None:
