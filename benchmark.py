@@ -61,7 +61,7 @@ class stupidEncoder(nn.Module):
         return x
 
 class MostSignificantOnlyEncoder(nn.Module):
-    def __init__(self, bits_to_cut = 4):
+    def __init__(self, bits_to_cut = 6):
         super().__init__()
         self.bits_to_cut = bits_to_cut
 
@@ -164,7 +164,7 @@ def main_benchmark():
 
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
-        model = Autoencoder(video_size, save_path=args.save_model)
+        model = Autoencoder(video_size)
         model.load_state_dict(torch.load(args.load_model))
     else:
         model = {"nothing":Nothing(), "resize":ResizingEncoder(), "cutbits":MostSignificantOnlyEncoder()}[args.benchmark]
@@ -199,8 +199,9 @@ def main_benchmark():
             #Run the actual model
             frames = frames.to(device)
             enc_frames, hidden_states[video_num][0] = model.encoder(frames, hidden_states[video_num][0])
+            prev_type = enc_frames.dtype
             enc_frames=enc_frames.type(enc_bytes)
-            frames_out, hidden_states[video_num][1] = model.decoder(enc_frames, hidden_states[video_num][1])
+            frames_out, hidden_states[video_num][1] = model.decoder(enc_frames.type(prev_type), hidden_states[video_num][1])
         else:
             enc_frames = model.encoder(frames)
             frames_out = model.decoder(enc_frames)
