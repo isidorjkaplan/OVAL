@@ -51,11 +51,11 @@ class SingleSenderSimulator():
     #Start the entire process, starts both train and video thread, runs until video is complete, and then terminates
     # When this returns it must have killed both the train and video thread
     # Will return some final statistics such as the overall error rate, overall network traffic, overall accuracy for the entire video
-    def start(self, video, runtime, out_file, rate, batch_size, downsample, loss_fn):
+    def start(self, video, runtime, out_file, rate, batch_size, downsample, loss_fn, test_fn):
         p_train = Process(target=self.train_thread)
         p_train.start() #Start training and then go to the live video feed
 
-        p_recv = Process(target=self.receive_thread, args=(out_file,rate,batch_size,downsample,loss_fn))
+        p_recv = Process(target=self.receive_thread, args=(out_file,rate,batch_size,downsample,loss_fn, test_fn))
         p_recv.start()
         try:
             self.video_thread(video, runtime)
@@ -121,7 +121,7 @@ class SingleSenderSimulator():
         self.data_q.put(None) #Signify it is done
         print("Finished reading Video")
             
-    def receive_thread(self, out_file, rate, batch_size, downsample, loss_fn):
+    def receive_thread(self, out_file, rate, batch_size, downsample, loss_fn, test_fn):
         frame_num = 0
         type_sizes = {torch.float16:2, torch.float32:4, torch.float64:8}
         out = None
@@ -163,9 +163,11 @@ class SingleSenderSimulator():
             #Calculat euncompressed bytes
             uncomp_bytes = frame.shape[1]*frame.shape[2]*frame.shape[3]*1 #For uncompressed, 1 byte per channel * C*L*W is total size
             #frame = self.video.get_frame(frame_num)
-            error = loss_fn(dec_frame, frame).detach() #Temporary, switch later     
+            loss = loss_fn(dec_frame, frame).detach() #Temporary, switch later 
+            error = test_fn(dec_frame, frame).detach()    
             #print("loss_v=%g" % error)
-            self.board.put(("receiver/realtime frame loss", error, frame_num)) 
+            self.board.put(("receiver/realtime frame loss", loss, frame_num)) 
+            self.board.put(("receiver/realtime frame test metric", error, frame_num)) 
             self.board.put(("receiver/compression factor (original/compressed)", uncomp_bytes/num_bytes, frame_num))
             #Live display of video 
             dec_np_frame = dec_frame[0].permute(2, 1, 0).numpy()

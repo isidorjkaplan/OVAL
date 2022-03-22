@@ -132,7 +132,8 @@ class ResizingEncoder(nn.Module):
 #This function will parse terminal inputs from the user and then perform offline training
 def main_benchmark():
     #cd "C:/Users/isido/OneDrive/Files/School/Year 3/Winter 2022/APS360/OVAL"
-    #python3 offline.py --cuda --stop=160 --save_model=data/models/offline.pt --max_frames=100
+    #python benchmark.py --benchmark=cutbits --loss=mae
+    #python benchmark.py --cuda --loss=mae --load_model=data\models\offline8.pt
     parser = argparse.ArgumentParser(description='Arguments for Online Training')
     parser.add_argument('--video_folder', default="data/videos", help='Path to a folder of videos to train on')
     parser.add_argument('--lr', type=float, default=0.001, help='The learning rate for the model')

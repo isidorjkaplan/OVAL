@@ -15,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 # OUTPUT: This will output encoded frames, and periodically decoder models
 class Sender():
     #Init function for Sender
-    def __init__(self, autoencoder, reward_func, board, lr, max_buffer_size, update_threshold, loss_fn, enc_bytes, min_frames=10, live_device='cuda', train_device='cuda', fallback=None):
+    def __init__(self, autoencoder, reward_func, board, lr, max_buffer_size, update_threshold, loss_fn, test_fn, enc_bytes, min_frames=10, live_device='cuda', train_device='cuda', fallback=None):
         #Live model is used for actively encoding frames, and stores the last broadcast model
         self.live_model = autoencoder.clone()
         #As we train with random encoding sizes we will keep track of a map enc_size->loss
@@ -35,6 +35,7 @@ class Sender():
         #How many frames can the largest our buffer be. If it is larger we start throwing out old frames
         self.max_buffer_size = max_buffer_size
         self.loss_fn = loss_fn
+        self.test_fn = test_fn
 
         self.eval_hidden = None
 
@@ -107,6 +108,8 @@ class Sender():
         #print("%s -> %s" % (str(data.shape), str(data_mse.shape)))
         loss_train = self.loss_fn(dec_frame, data_mse) #Compute the loss
         self.board.put(("sender/loss_train (batch)", loss_train.detach().cpu().item(), self.iter))
+        test_score = self.test_fn(dec_frame, data_mse) 
+        self.board.put(("sender/test_score_train (batch)", test_score.detach().cpu().item(), self.iter))
 
         if self.update_threshold is not None:
             self.live_model.to(self.train_device)
@@ -114,9 +117,11 @@ class Sender():
             x, self.live_hidden[1] = self.live_model.decoder(x, self.live_hidden[1])
             loss_live = self.loss_fn(x, data_mse) #Compute the loss
             self.board.put(("sender/loss_live (batch)", loss_live.detach().cpu().item(), self.iter))
+            test_score_live = self.test_fn(x, data_mse)
+            self.board.put(("sender/test_score_live (batch)", test_score_live.detach().cpu().item(), self.iter))
             
-            rel_err = (loss_live/loss_train - 1).detach().cpu().item()
-            self.board.put(("sender/relative_error (batch)", rel_err, self.iter))
+            rel_err = (test_score_live/test_score - 1).detach().cpu().item()
+            self.board.put(("sender/test_score_relative_error (batch)", rel_err, self.iter))
 
         loss_train.backward()
         self.optimizer.step()

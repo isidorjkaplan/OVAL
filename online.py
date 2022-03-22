@@ -49,6 +49,7 @@ def main_online():
     parser.add_argument('--video', type=None, help='The path to the video to load (from current directory). If this is empty then uses the video camera instead.')
     parser.add_argument('--lr', type=float, default=0.0025, help='The learning rate for the model')
     parser.add_argument('--fps', type=float, default=15, help='The FPS to target (may be slower)')
+    parser.add_argument("--test_metric", default='mae', help='Test Metric for broadcasting relative error and analysis ')
     parser.add_argument('--update_err', type=float, default=1, help='The ratio of losses error that causes a new model to be broadcast (0-1). Leave empty to send update every itteration (faster training as well since no local eval)')
     parser.add_argument('--stop', type=float, default=None, help='Time after which we stop video')
     parser.add_argument('--repeat_video', action="store_true", default=False, help='Repeat when the video runs out')
@@ -84,9 +85,10 @@ def main_online():
     
     #shutil.rmtree(board)
     loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss, 'bce':nn.BCELoss()}[args.loss]
+    test_fn = {'mse':F.mse_loss, 'mae':F.l1_loss, 'bce':nn.BCELoss()}[args.test_metric]
     device = 'cuda' if args.cuda else 'cpu'
     enc_bytes = {16:torch.float16, 32:torch.float32, 64:torch.float64}[args.enc_bytes]
-    sender = arch.Sender(model, linear_reward_func, data_q, enc_bytes=enc_bytes, loss_fn=loss_fn, lr=args.lr, max_buffer_size=args.buffer_size,min_frames=args.buffer_size, update_threshold=args.update_err, live_device=device, train_device=device)
+    sender = arch.Sender(model, linear_reward_func, data_q, enc_bytes=enc_bytes, loss_fn=loss_fn, test_fn=test_fn, lr=args.lr, max_buffer_size=args.buffer_size,min_frames=args.buffer_size, update_threshold=args.update_err, live_device=device, train_device=device)
 
     frameWidth, frameHeight = None, None
     if args.video is not None:
@@ -94,7 +96,7 @@ def main_online():
     else:
         video_sim = sim.CameraVideoSimulator(rate=args.fps, video_size=video_size)
     local_sim = sim.SingleSenderSimulator(sender, data_q, live_video=args.live_video)
-    local_sim.start(video_sim, args.stop, args.out, args.fps, 5, args.downsample, loss_fn)
+    local_sim.start(video_sim, args.stop, args.out, args.fps, 5, args.downsample, loss_fn, test_fn)
     
     p.kill()
     p.join()
