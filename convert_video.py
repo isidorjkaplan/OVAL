@@ -35,7 +35,7 @@ def main_convert_video():
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this. Pass '(x,y)' ")
     parser.add_argument("--color_space", default="bgr", help="color space used in training")
     parser.add_argument("--lstm", default=False, action='store_true', help="Add a conv LSTM layer. WARN: HUGE SLOWDOWN")
-    parser.add_argument("--benchmark", default=None, help="Choose which benchmark to use. {nothing, resize, cutbits}")
+    parser.add_argument("--benchmark", default=None, help="Choose which benchmark to use. {nothing, resize20, resize5, cutbits4, cutbits6}")
     args = parser.parse_args()
 
     #Select the device
@@ -53,7 +53,9 @@ def main_convert_video():
         model = Autoencoder(video_size, save_path=args.save_model)
         model.load_state_dict(torch.load(args.load_model))
     else:
-        model = {"nothing":benchmark.Nothing(), "resize":benchmark.ResizingEncoder(), "cutbits":benchmark.MostSignificantOnlyEncoder()}[args.benchmark]
+        model = {"nothing":benchmark.Nothing(), "resize20":benchmark.ResizingEncoder(factor=20), 
+            "resize5":benchmark.ResizingEncoder(factor=5),"cutbits4":benchmark.MostSignificantOnlyEncoder(bits_to_cut=4),
+            "cutbits6":benchmark.MostSignificantOnlyEncoder(bits_to_cut=6)}[args.benchmark]
 
     if args.cuda:
         print("Sending model to CUDA")
