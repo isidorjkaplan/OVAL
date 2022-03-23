@@ -130,6 +130,8 @@ class SingleSenderSimulator():
         # Batch decoding
         batch_decoded_np = []
         batch_count = 0
+        if self.live_video:
+            cv2.namedWindow("live_video")
 
         decode_hidden = None
         while True:
@@ -172,7 +174,11 @@ class SingleSenderSimulator():
             #Live display of video 
             dec_np_frame = dec_frame[0].permute(2, 1, 0).numpy()
             dec_np_frame = np.uint8(255*dec_np_frame)
+            if self.live_video:
+                cv2.imshow("live_video", dec_np_frame)
+                cv2.waitKey(1)
             dec_np_frame = cv2.cvtColor(dec_np_frame, cv2.COLOR_BGR2RGB)
+        
             batch_count+=1
             if (out_file is not None):
                 batch_decoded_np.append(dec_np_frame)

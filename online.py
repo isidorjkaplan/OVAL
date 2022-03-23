@@ -50,7 +50,7 @@ def main_online():
     parser.add_argument('--lr', type=float, default=0.0025, help='The learning rate for the model')
     parser.add_argument('--fps', type=float, default=15, help='The FPS to target (may be slower)')
     parser.add_argument("--test_metric", default='mae', help='Test Metric for broadcasting relative error and analysis ')
-    parser.add_argument('--update_err', type=float, default=1, help='The ratio of losses error that causes a new model to be broadcast (0-1). Leave empty to send update every itteration (faster training as well since no local eval)')
+    parser.add_argument('--update_err', type=float, default=0.01, help='The ratio of losses error that causes a new model to be broadcast (0-1). Leave empty to send update every itteration (faster training as well since no local eval)')
     parser.add_argument('--stop', type=float, default=None, help='Time after which we stop video')
     parser.add_argument('--repeat_video', action="store_true", default=False, help='Repeat when the video runs out')
     parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda')
@@ -94,7 +94,7 @@ def main_online():
     if args.video is not None:
         video_sim = VideoSimulator(args.video, repeat=args.repeat_video, rate=args.fps, video_size=video_size)#, size=(340, 256))
     else:
-        video_sim = sim.CameraVideoSimulator(rate=args.fps, video_size=video_size)
+        video_sim = CameraVideoSimulator(rate=args.fps, video_size=video_size)
     local_sim = sim.SingleSenderSimulator(sender, data_q, live_video=args.live_video)
     local_sim.start(video_sim, args.stop, args.out, args.fps, 5, args.downsample, loss_fn, test_fn)
     

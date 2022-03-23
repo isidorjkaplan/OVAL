@@ -9,7 +9,7 @@ import formater
 #Simulates a file as being a live video stream returning rate frames per second
 class CameraVideoSimulator():
     #Opens the file and initilizes the video
-    def __init__(self, rate=30, video_size=None):
+    def __init__(self, rate=30, video_size=None, color_space='bgr'):
 
         #Parameters for frame reading
         self.num_frames_read = 0
@@ -17,6 +17,7 @@ class CameraVideoSimulator():
         self.time_between_frames = 1.0/rate
 
         self.size = video_size
+        self.color_space=  color_space
 
         self.stream = cv2.VideoCapture(0)
         self.frameWidth = int(self.stream.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -39,8 +40,11 @@ class CameraVideoSimulator():
         if self.size is not None:
             frame = cv2.resize(frame, self.size, interpolation = cv2.INTER_AREA)
 
-        frame = torch.FloatTensor(frame).permute(2, 1, 0)/255.0
-        frame = frame.view(1, 3, self.frameWidth, self.frameHeight)
+        frame = np.array([frame])
+
+        frame = torch.FloatTensor(frame).permute(0, 3, 2, 1)/255.0
+        frame = frame.view(1, 3, self.frameWidth if self.size is None else self.size[0], self.frameHeight if self.size is None else self.size[1])
+        
 
         #Sleep so that we ensure appropriate frame rate, only return at the proper time
         now = time.time()
@@ -50,7 +54,7 @@ class CameraVideoSimulator():
         #If negative this should have arrived already and we are behind so just go so time gets earlier
         self.last_frame_time = time.time()
         #Return value
-        return frame
+        return (frame, False)
 
     def __del__(self):
         self.stream.release()
