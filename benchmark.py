@@ -168,9 +168,9 @@ def main_benchmark():
         model = Autoencoder(video_size)
         model.load_state_dict(torch.load(args.load_model))
     else:
-        model = {"nothing":benchmark.Nothing(), "resize20":benchmark.ResizingEncoder(factor=20), 
-            "resize5":benchmark.ResizingEncoder(factor=5),"cutbits4":benchmark.MostSignificantOnlyEncoder(bits_to_cut=4),
-            "cutbits6":benchmark.MostSignificantOnlyEncoder(bits_to_cut=6)}[args.benchmark]
+        model = {"nothing":Nothing(), "resize20":ResizingEncoder(factor=20), 
+            "resize5":ResizingEncoder(factor=5),"cutbits4":MostSignificantOnlyEncoder(bits_to_cut=4),
+            "cutbits6":MostSignificantOnlyEncoder(bits_to_cut=6)}[args.benchmark]
 
     if args.cuda:
         print("Sending model to CUDA")
