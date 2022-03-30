@@ -91,7 +91,7 @@ class Sender():
             return None
 
         #del data
-        torch.cuda.empty_cache()
+       # torch.cuda.empty_cache()
 
         start = time.time()
             
@@ -122,6 +122,7 @@ class Sender():
             
             rel_err = (test_score_live/test_score - 1).detach().cpu().item()
             self.board.put(("sender/test_score_relative_error (batch)", rel_err, self.iter))
+            self.board.put(("demo/Relative Mean Absolute Error (live vs train)", rel_err, self.iter))
 
         loss_train.backward()
         self.optimizer.step()
@@ -132,7 +133,7 @@ class Sender():
         self.board.put(("timing/train_iter (sec)", time.time() - start, self.iter))
 
         #del data
-        torch.cuda.empty_cache()
+        #torch.cuda.empty_cache()
 
         #Evaluate how live model is doing
 
@@ -171,7 +172,7 @@ class Sender():
         enc_state, self.eval_hidden = self.live_model.encoder(frame.to(self.live_device), self.eval_hidden)
         self.train_q.put(frame)
         enc_state = enc_state.cpu()
-        torch.cuda.empty_cache()
+       # torch.cuda.empty_cache()
 
         return enc_state.type(self.enc_bytes)
 

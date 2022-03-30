@@ -133,8 +133,9 @@ class SingleSenderSimulator():
         if self.live_video:
             cv2.namedWindow("live_video")
 
+        done = False
         decode_hidden = None
-        while True:
+        while not done:
             num_bytes = 0
             #THIS IS TOO SLOW. Must do this in another thread
             if not self.model_q.empty():
@@ -142,13 +143,26 @@ class SingleSenderSimulator():
                 self.decoder.load_state_dict(self.model_q.get())
             #This is done here instead of send thread to avoid delaying critical path measurements
             # Downsampling
-            downsamples = 0
-            while self.data_q.qsize() > downsample:
-                    downsamples+=1
+            downsamples = -1
+            frame = None
+            while True:
                     frame_num+=1
-                    self.data_q.get()
+                    try:
+                        frame = self.data_q.get(False)
+                        if frame is None:
+                            done = True
+                            break
+                    except:
+                        break
+                    downsamples+=1
+                    if not downsample: #No downsampling, break
+                        break
+            if frame is None:
+                    continue
+                    
 
             self.board.put(("receiver/realtime frames discarded per reciever iter", downsamples, frame_num)) 
+            self.board.put(("demo/discard rate (frames / frame)", downsamples, frame_num)) 
             data = self.data_q.get()
             if data is None:
                 print("Video Stream Terminated")
@@ -170,7 +184,9 @@ class SingleSenderSimulator():
             #print("loss_v=%g" % error)
             self.board.put(("receiver/realtime frame loss", loss, frame_num)) 
             self.board.put(("receiver/realtime frame test metric", error, frame_num)) 
+            self.board.put(("demo/Mean Absolute Error", error, frame_num)) 
             self.board.put(("receiver/compression factor (original/compressed)", uncomp_bytes/num_bytes, frame_num))
+            self.board.put(("demo/compression factor (original/compressed)", uncomp_bytes/num_bytes, frame_num))
             #Live display of video 
             dec_np_frame = dec_frame[0].permute(2, 1, 0).numpy()
             dec_np_frame = np.uint8(255*dec_np_frame)

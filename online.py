@@ -62,7 +62,7 @@ def main_online():
     parser.add_argument("--save_model", default=None, help="File to save the model")
     parser.add_argument("--live_video", action="store_true", default=False, help="Turns on the real/decoded live video feed")
     parser.add_argument("--batch_size", type=int, default=5, help="Sets the batch size to be used in sending/receiving")
-    parser.add_argument("--downsample", type=int, default=100, help="The buffer size of the receive queue, after which we downsample")
+    parser.add_argument("--downsample", default=False, action="store_true", help="The buffer size of the receive queue, after which we downsample")
     parser.add_argument("--img_size", default="(480,360)", help="The dimensions for the image. Will be resized to this.")
     parser.add_argument("--lstm", default=False, action='store_true', help="Add a conv LSTM layer. WARN: HUGE SLOWDOWN")
 
@@ -71,12 +71,14 @@ def main_online():
     video_size = literal_eval(args.img_size)
 
     assert args.enc_bytes in [16, 32, 64]
+    device = 'cuda' if args.cuda else 'cpu'
+    map_location=torch.device(device)
 
     data_q = Queue()
     model = Autoencoder(video_size, save_path=args.save_model, use_lstm=args.lstm)
     if args.load_model is not None:
         print("Loading model: %s" % args.load_model)
-        model.load_state_dict(torch.load(args.load_model))
+        model.load_state_dict(torch.load(args.load_model, map_location=map_location))
 
         
     p = Process(target=print_thread, args=(vars(args), data_q,model,))
@@ -86,7 +88,7 @@ def main_online():
     #shutil.rmtree(board)
     loss_fn = {'mse':F.mse_loss, 'mae':F.l1_loss, 'bce':nn.BCELoss()}[args.loss]
     test_fn = {'mse':F.mse_loss, 'mae':F.l1_loss, 'bce':nn.BCELoss()}[args.test_metric]
-    device = 'cuda' if args.cuda else 'cpu'
+
     enc_bytes = {16:torch.float16, 32:torch.float32, 64:torch.float64}[args.enc_bytes]
     sender = arch.Sender(model, linear_reward_func, data_q, enc_bytes=enc_bytes, loss_fn=loss_fn, test_fn=test_fn, lr=args.lr, max_buffer_size=args.buffer_size,min_frames=args.buffer_size, update_threshold=args.update_err, live_device=device, train_device=device)
 
