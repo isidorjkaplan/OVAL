@@ -1,0 +1,293 @@
+\documentclass{beamer}
+%
+% Choose how your presentation looks.
+%
+% For more themes, color themes and font themes, see:
+% http://deic.uab.es/~iblanes/beamer_gallery/index_by_theme.html
+%
+\mode<presentation>
+{
+  \usetheme{default}      % or try Darmstadt, Madrid, Warsaw, ...
+  \usecolortheme{default} % or try albatross, beaver, crane, ...
+  \usefonttheme{default}  % or try serif, structurebold, ...
+  \setbeamertemplate{navigation symbols}{}
+  \setbeamertemplate{caption}[numbered]
+  \setbeamertemplate{footline}[frame number]
+} 
+
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{subfigure}
+\usepackage{subfig}
+\usepackage{subcaption}
+\usepackage{ccaption}
+
+
+\title[Your Short Title]{OVAL: Online Video Compression using Autoencoder Learning}
+\author{Project Group 27}
+\institute{APS360, Winter 2022, University of Toronto}
+\date{Apr. 6, 2022}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% Uncomment these lines for an automatically generated outline.
+%\begin{frame}{Outline}
+%  \tableofcontents
+%\end{frame}
+
+\begin{frame}{Problem}
+
+\begin{itemize}
+  \item Real-time video compression for video conferences
+\end{itemize}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=10cm]{ovalbasic.png}
+\end{figure}
+
+\begin{itemize}
+\item Novel \textbf{online learning} approach for autoencoding
+  \item Key intuition: video call streams rarely change
+\end{itemize}
+    
+\end{frame}
+
+\begin{frame}
+    \begin{figure}
+        \centering
+        \includegraphics[width=10cm]{updated_arch_diag.png}
+    \end{figure}
+\end{frame}
+
+\begin{frame}{Data}
+\begin{itemize}
+    \item Training data used to pre-train an initial, offline model
+  \item Needed to create \textbf{original} dataset of YouTube videos
+\end{itemize}
+      \begin{figure}
+    \centering
+    \subfigure{\includegraphics[width=0.48\textwidth]{jagmeet.png}}\hfill
+    \subfigure{\includegraphics[width=0.46\textwidth]{merkel.png}}
+\end{figure}
+
+\end{frame}
+
+\begin{frame}{Fairness in Training Data}
+\begin{itemize}
+    \item  Ensured diversity of speakers and applications 
+\end{itemize}
+    \begin{figure}
+        \centering
+        \includegraphics[width=11cm]{data_eqty.png}
+    \end{figure}
+\end{frame}
+
+\begin{frame}{Data Processing}
+    \begin{itemize}
+  \item \textit{Offline}: added Gaussian noise for resiliency
+  \item \textit{Online}: dynamically downsample training frames to stay up-to-date with live video
+\end{itemize}
+\begin{figure}
+        \centering
+        \includegraphics[width=9cm]{data_pipeline.png}
+    \end{figure}
+
+\end{frame}
+
+
+\begin{frame}{}
+\begin{itemize}
+    \item Example training frames with Gaussian noise
+\end{itemize}
+    \begin{figure}[h]
+    \centering
+    \begin{minipage}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{foo.png}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{foo2.png}
+  \end{minipage}
+\end{figure}
+
+\end{frame}
+
+\begin{frame}{Model}
+    \begin{itemize}
+        \item 5-layer \textbf{CNN} encoder with symmetrical decoder
+        \item Latent-space achieves \textbf{23.3x} compression ratio
+    \end{itemize}
+        \begin{figure}[H!]
+    \centering
+    \includegraphics[width=6.5cm]{new_arcg.png}
+\end{figure}
+\end{frame}
+
+\begin{frame}{Pre-Training}
+    \begin{itemize}
+        \item Final model trained for \textbf{18 hours} over 25 epochs on CUDA
+    \end{itemize}
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=10cm]{training_loss.png}
+\end{figure}
+\end{frame}
+
+\begin{frame}{Evidence of Feature Learning}
+    \begin{figure}[h!]
+    \centering
+    \includegraphics[width=7.5cm]{mse_loss.png}
+\end{figure}
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=7.5cm]{mae_loss.png}
+\end{figure}
+\end{frame}
+
+\begin{frame}{Online Learning}
+\begin{itemize}
+    \item Online learning reduces in-video error by up to \textbf{75\%}
+    \item Key result: online learning for video has never been implemented before
+\end{itemize}
+\begin{figure}
+    \centering
+    \includegraphics[width=9cm]{online1.png}
+\end{figure}
+\end{frame}
+
+\begin{frame}{Qualitative Improvement during Online Learning}
+\begin{itemize}
+    \item Video quality improves as the video progresses
+\end{itemize}
+    \begin{figure}
+    \centering
+    \subfigure[\textit{t} = 5 s]{\includegraphics[width=0.48\textwidth]{badjobint.png}}\hfill
+    \subfigure[\textit{t} = 60 s]{\includegraphics[width=0.46\textwidth]{goodjobint.png}}
+\end{figure}
+\end{frame}
+
+\iffalse
+\begin{figure}
+    \centering
+    \includegraphics{}
+    \caption{Caption}
+    \label{fig:my_label}
+\end{figure}
+\fi
+
+\begin{frame}{Comparison to Benchmarks}
+    \begin{figure}
+    \centering
+    \subfigure[OVAL with online learning at 23.3x]{\includegraphics[width=0.4\textwidth]{online_1.png}} \hfill
+    \subfigure[OVAL without online learning at 23.3x]{\includegraphics[width=0.4\textwidth]{offlinemeg.png}} 
+    \subfigure[bit dropping at 4x]{\includegraphics[width=0.4\textwidth]{cutbit4xmegan.png}}\hfill
+    \subfigure[\texttt{cv2} interpolation at 20x]{\includegraphics[width=0.4\textwidth]{resize20xm.png}}
+    \label{comp_baselines}
+\end{figure}
+\end{frame}
+
+\iffalse
+\begin{frame}{Dynamic Parameter Updates}
+
+\begin{itemize}
+    \item Relative error is measured between the live/train encoders
+    \item Able to maintain \textbf{arbitrarily small error}
+    \item Practical trade-off when deciding update policy
+\end{itemize}
+\begin{figure}
+    \centering
+    \includegraphics[width=10cm]{param1.png}
+\end{figure}
+\fi
+  
+\end{frame}
+
+\begin{frame}{Static vs. Dynamic Video Feeds}
+    \begin{itemize}
+        \item Online learning works better for static videos
+    \end{itemize}
+    \begin{figure}
+    \centering
+    \subfigure{\includegraphics[width=8cm]{online1.png}} 
+    \subfigure{\includegraphics[width=8cm]{dynamic.png}}
+    \label{static_dynamic}
+\end{figure}
+\end{frame}
+
+\begin{frame}{Demonstration}
+    \begin{itemize}
+        \item You've been watching OVAL perform this entire time!
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Summary}
+    \begin{itemize}
+        \item OVAL is an \textbf{original} online model for video compression at 23.3x
+        \item Outperforms benchmarks both \textbf{quantitatively} and \textbf{qualitatively}
+        \item Online results reflect intuition behind video streams
+        
+    \end{itemize}
+\end{frame}
+
+
+\iffalse
+\begin{frame}{Problem}
+
+\begin{itemize}
+  \item Your introduction goes here!
+  \item Use \texttt{itemize} to organize your main points.
+\end{itemize}
+
+\vskip 1cm
+
+\begin{block}{Examples}
+Some examples of commonly used commands and features are included, to help you get started.
+\end{block}
+
+\end{frame}
+
+\begin{frame}{Tables and Figures}
+
+\begin{itemize}
+\item Use \texttt{tabular} for basic tables --- see Table~\ref{tab:widgets}, for example.
+\item You can upload a figure (JPEG, PNG or PDF) using the files menu. 
+\item To include it in your document, use the \texttt{includegraphics} command (see the comment below in the source code).
+\end{itemize}
+
+% Commands to include a figure:
+%\begin{figure}
+%\includegraphics[width=\textwidth]{your-figure's-file-name}
+%\caption{\label{fig:your-figure}Caption goes here.}
+%\end{figure}
+
+\begin{table}
+\centering
+\begin{tabular}{l|r}
+Item & Quantity \\\hline
+Widgets & 42 \\
+Gadgets & 13
+\end{tabular}
+\caption{}
+\end{table}
+
+\end{frame}
+
+\subsection{Mathematics}
+
+\begin{frame}{Readable Mathematics}
+
+Let $X_1, X_2, \ldots, X_n$ be a sequence of independent and identically distributed random variables with $\text{E}[X_i] = \mu$ and $\text{Var}[X_i] = \sigma^2 < \infty$, and let
+\[ S_n = \frac{X_1 + X_2 + \cdots + X_n}{n}
+      = \frac{1}{n}\sum_{i}^{n} X_i \]
+denote their mean. Then as $n$ approaches infinity, the random variables $\sqrt{n}(S_n - \mu)$ converge in distribution to a normal $\mathcal{N}(0, \sigma^2)$.
+
+\end{frame}
+\fi
+
+\end{document}

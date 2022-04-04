@@ -1,0 +1,479 @@
+\documentclass[letter, 12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx} % Allows you to insert figures
+\usepackage{amsmath} % Allows you to do equations
+\usepackage{hyperref}
+\usepackage{fancyhdr} % Formats the header
+\usepackage{geometry} % Formats the paper size, orientation, and margins
+\usepackage[english]{babel}
+\usepackage{csquotes}
+\usepackage{subfigure}
+\usepackage{subfig}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{ccaption}
+\renewcommand*{\nameyeardelim}{\addcomma\space} % Adds comma in in-text citations
+\linespread{1.25} % About 1.5 spacing in Word
+\setlength{\parindent}{0pt} % No paragraph indents
+\setlength{\parskip}{1em} % Paragraphs separated by one line
+\renewcommand{\headrulewidth}{0pt} % Removes line in header
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Overleaf Example},
+    pdfpagemode=FullScreen,
+    }
+
+\geometry{letterpaper, portrait, margin=1in}
+\setlength{\headheight}{14.49998pt}
+
+\begin{document}
+\begin{titlepage}
+   \begin{center}
+        \vspace*{2cm}
+
+        \Huge{OVAL: Online Video Compression using Autoencoder Learning}
+
+        \vspace{0.5cm}
+        \LARGE{Project Final Report}
+            
+        \vspace{3 cm}
+        \Large{Project Group 27} \\
+        \Large{Word Count: 2620 (will cut)}
+       
+        \vspace{0.25cm}
+        \large{Isidor Kaplan (1005904005) \\
+        Adam Glustein (1006068425) \\
+        Ryan Ghosh (1006418627) \\
+        Khantil Desai (1006155161)}
+       
+        \vspace{3 cm}
+        \Large{Apr. 13, 2022}
+        
+        \vspace{0.25 cm}
+        \large{APS360 - Applied Fundamentals of Machine Learning, Winter 2022}
+       
+
+       \vfill
+    \end{center}
+\end{titlepage}
+
+\setcounter{page}{2}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\lhead{OVAL: Online Video Compression using Autoencoder Learning}
+
+\section{Introduction}
+
+Real-time video conferencing has become increasingly important with the catalyst of the COVID-19 pandemic. As video data is continuously generated, it must be compressed and decompressed with lossy reconstruction. Finding efficient compressions is a task well-suited to artificial neural networks, especially autoencoders, since they reduce inputs into smaller latent-space representations. Existing video compression methods are either algorithmic or based on offline training, and therefore cannot adapt to individual video streams. OVAL is an online learning model for video compression which finds efficient video encodings in real-time. The goal of the project is to encode video input with a high compression ratio and strong input/output similarity after decoding. By reducing the size of in-conference transmissions, OVAL can mitigate lag and other undesirable qualities. 
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=14cm]{ovalbasic.png}
+    \caption{OVAL is an autoencoder for video data, primarily for use in video conferencing.}
+    \label{fig:ovalbasic}
+\end{figure}
+
+ Our online learning approach is a novel method in the machine learning community. We expected strong results from online learning due to the nature of videoconferencing; individual video streams are largely static, which means that their encodings can be quickly learned. 
+
+\section{Visualization of OVAL}
+
+
+\begin{figure}[h] % h - Place the float here, i.e., approximately at the same point it occurs in the source text (however, not exactly at the spot)
+\centering
+\includegraphics[width=18cm]{updated_arch_diag.png}
+\caption{The high-level architecture of the OVAL model, allowing for concurrent online learning and encoding.}
+\label{fig:bigarch}
+\end{figure}
+
+In the \textit{critical path }(\textbf{Figure \ref{fig:bigarch}}), video frames are encoded and sent to the receiver. The receiver decodes the data using parameters which are periodically updated by the sender. As the sender encodes frames, the model performs unsupervised learning using the input video data. In an isolated pipeline, data moves through a FIFO buffer to a training-stage autoencoder. The training error is compared to the live error and OVAL decides whether to update the receiver with new model parameters. The dynamic update policy allows large live errors to be corrected promptly while small errors need to be corrected infrequently.
+
+The sender's neural network autoencoders (\textbf{Figure \ref{fig:netarch}}) are used separately for training and live encoding, which is necessary for online learning. The receiver's decoder does not need to be identical to the sender's if a small live error is preserved during transmission. Thus, having two separate live decoders reduces the transfer of decoder parameters between sender and receiver. 
+
+\clearpage
+\section{Background and Related Work}
+
+Autoencoders have previously been used for video compression and summarization, with most approaches using offline learning and offline encoding (offline-offline). A recent paper [1] used autoencoders for video compression with offline training but online encoding. Using a fixed recurrent neural network, the pre-trained model was able to encode videos in real-time. Upon validation, the model achieved a state-of-the-art MS-SSIM similarity index which outperformed existing offline-offline models and traditional codecs. 
+
+Another recent paper [2] used online training with offline encoding. Again using an autoencoder neural network, the model learned frame-by-frame representations for video summarization. However, when tested on new data, the model required the entire new video before it could encode a summarization. Their model achieved state-of-the-art performance for summarizing object motion in video. The network architecture consisted of initial convolution layers for feature extraction and three series LSTM encoding layers.
+
+There have been no published online-online video compression implementations, which is the goal of OVAL.
+
+\section{Data Processing}
+
+The OVAL autoencoder was pre-trained in an offline learning phase and continuously improves during the online learning phase.
+
+\subsection{Data Collection}
+
+We wanted our training data to be representative of video conferencing applications, which focus on a single or small set of speakers. Since no existing datasets met this criteria, we created our own dataset from YouTube. Training videos met the following criteria:
+\begin{enumerate}
+    \item \textbf{Format} Videos focused on a set of speakers in front of a stable background. Examples include newscasters, political speeches, and video podcasts.
+    \item \textbf{Length} Videos were 2-5 minutes in length. Any longer would be too large to pre-load as tensors in RAM memory, and any shorter would provide insufficient frames for learning.
+    \item \textbf{Quality} Videos were selected in both 360p and 720p. These are small enough to pre-load into RAM and also trained the model with different resolutions.
+    \item \textbf{Diversity} Videos featured a diverse set of speakers across race, gender, language and age. This ensured fairness in training.
+\end{enumerate} 
+
+Examples from the dataset include  \href{https://www.youtube.com/watch?v=it6URCbqwcI&ab_channel=GlobalNews}{a press conference by Jagmeet Singh}, \href{https://www.youtube.com/watch?v=NPeQGDHPiZM&ab_channel=WorldHealthOrganization\%28WHO\%29}{a statement in German by Angela Merkel}, and \href{https://www.youtube.com/watch?v=VFkQSGyeCWg&ab_channel=Connect4Climate}{Greta Thunberg's speech at the UN.} In total, 60 videos were pulled from YouTube with 40 for training and 10 for each of validation/testing.
+
+\subsection{Data Cleaning}
+
+We converted the raw \texttt{.mp4} files to PyTorch tensors for training. Gaussian noise is added to training examples to add resiliency to the autoencoder (\textit{denoising} [3]). OVAL also dynamically downsamples training frames for the online learning component if necessary to ensure the online training stays up-to-date with the video feed. \textbf{Figure} \textbf{\ref{data}} shows the cleaning pipeline and \textbf{Figure} \textbf{\ref{noise}} shows video frames with added Gaussian noise. 
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=15cm]{data_pipeline.png}
+    \caption{The data cleaning process for online/offline training. }
+    \label{data}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \begin{minipage}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{foo.png}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{foo2.png}
+  \end{minipage}
+  \caption{Scaled frames from training examples with added Gaussian noise.}
+  \label{noise}
+\end{figure}
+
+
+\subsection{Fairness and Diversity}
+
+Due to the human nature of our data, diversity in the training data was vital. We ensured a wide range of demographics were represented. \textbf{Figure \ref{fig:eqty}} shows key diversity statistics of our dataset.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=16cm]{data_eqty.png}
+  \caption{Diversity of our dataset across gender, race and language. All values are respective of the primary speaker of the video.}
+  \label{fig:eqty}
+\end{figure}
+
+\section{Model Architecture}
+
+The final encoder model is a 5-layer convolutional neural network (CNN) which is mirrored by the decoder. \textbf{Figure \ref{fig:netarch}} shows the autoencoder architecture and \textbf{Table 1} shows the convolution parameters for each layer. Each convolution layer is followed by a ReLU activation except for the final layer.
+
+\begin{figure}[H!]
+    \centering
+    \includegraphics[width=16cm]{new_arcg.png}
+    \caption{The final OVAL autoencoder architecture, consisting of a 5-layer CNN encoder and a symmetric 5-layer decoder.}
+    \label{fig:netarch}
+\end{figure}
+
+\begin{table}
+\centering
+    \begin{tabular}{ | c | c | c | c | c |}
+    \hline
+    Layer &  Input Channels & Output Channels & Kernel Size & Stride \\ \hline
+    1 & 3 (RGB) & 6 & 3 & 1 \\ \hline
+    2 & 6 & 8 & 3 & 2 \\ \hline
+    3 & 8 & 9 & 4 & 1 \\ \hline
+    4 & 9 & 10 & 3 & 3 \\ \hline
+    5 & 10 & 10 & 3 & 2 \\ \hline
+    \hline
+    \end{tabular}
+    \label{arch_table}
+    \caption{Convolution parameters for each layer in the encoder CNN. The decoder CNN mirrors the encoder with transpose convolutions.}
+\end{table}
+
+
+\subsection{Baseline Model}
+
+We created two viable baseline models to compare results from our autoencoder.
+
+\subsubsection{k-MSB Compressor}
+
+This model compresses the input video frames by only keeping the $k$ most significant bits for each color pixel. Since each pixel value is 8-bits, the maximum compression from the technique is 8x. We tested this baseline with 2x compression (cutting 4 bits) and 4x compression (cutting 6 bits), with example frames shown in \textbf{Figure \ref{fig:cutbits}}.
+
+
+\begin{figure}[h]
+    \centering
+    \begin{minipage}[b]{0.46\textwidth}
+    \includegraphics[width=\textwidth]{cutbit2x.png}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{cutbit4x.png}
+  \end{minipage}
+  \caption{k-MSB compression with compression ratios of 2x (left) and 4x (right).}
+  \label{fig:cutbits}
+\end{figure}
+
+\subsubsection{Image Interpolation Compressor}
+
+Using standard image resizing interpolation contained in the \texttt{cv2} library, this simple encoder resizes the frames by a set compression ratio to be scaled back by the decoder. The maximum compression ratio is unbounded. \textbf{Figure \ref{fig:resize}} shows the baseline performance with compression ratios of 5x and 20x.
+
+
+\begin{figure}[h]
+    \centering
+    \begin{minipage}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{resize5x.png}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{resize20x.png}
+  \end{minipage}
+  \caption{Image interpolation compression with compression ratios of 5x (left) and 20x (right).}
+  \label{fig:resize}
+\end{figure}
+
+\section{Quantitative Results}
+
+\subsection{Offline Training}
+
+The model was pre-trained for 25 epochs over 18 hours using the data described in Section 4. The loss function was binary cross entropy (BCE) between the original image frames and the decoded frames. We used BCE loss as it is a well-documented loss function for autoencoders with normalized images [4]. Additionally, BCE loss showed superior learning behaviour to both MSE loss and MAE loss. \textbf{Figure \ref{fig:train}} shows the model learning curves at a 23.3x compression ratio.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=14cm]{training_loss.png}
+    \caption{Training and validation loss over 25 epochs of autoencoder training.}
+    \label{fig:train}
+\end{figure}
+
+
+We additionally verified strong results by observing a decrease in both MSE and MAE loss (\textbf{Figures \ref{fig:mse}} and \textbf{\ref{fig:mae}}) even though BCE was being used. \textbf{Table 2} contains the hyperparameters we tuned during training that were used on the final model.
+
+\begin{table}[h!]
+\centering
+    \begin{tabular}{ | c | c | c | c | c |}
+    \hline
+    \textbf{Hyperparameter} &  \textbf{Value}  \\ \hline
+    Learning Rate & 1e-3 \\ \hline
+    Frame Batch Size & 16 \\ \hline
+    Number of Epochs & 25 \\ \hline
+    Loss Function & BCE \\ \hline
+    Optimizer & Adam \\ \hline
+    \hline
+    \end{tabular}
+    \caption{Training parameters used for the final 18 hour training run.}
+\end{table}
+
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=15cm]{mse_loss.png}
+    \caption{MSE training and validation loss over 180,000 image frames.}
+    \label{fig:mse}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=15cm]{mae_loss.png}
+    \caption{MAE training and validation loss over 180,000 image frames. }
+    \label{fig:mae}
+\end{figure}
+
+\subsection{Online Learning}
+
+After pre-training the offline model, we deployed it to test videos for online learning. \textbf{Figure \ref{fig:online_compquant}} shows the real-time error when the model was used with three sample test videos. MAE loss was used to evaluate online learning since it represents the mean absolute difference between video frames, which is an appropriate measure of video quality. We observe that the loss is strongly reduced as each video progresses compared to the purely offline model. The loss starts equal for both compressors, since at the start of each video OVAL is using the pre-trained model. However, online learning is able to specially adapt to each new video, resulting in better performance. This is a major result, as online learning for video compression has never been implemented before in the ML community. \textbf{Table 3} shows the final tuned hyperparameters used in online learning.
+
+\begin{figure}
+    \centering
+    \subfigure[Online learning during test video 1.]{\includegraphics[width=0.8\textwidth]{online1.png}}
+    \subfigure[Online learning during test video 2.]{\includegraphics[width=0.9\textwidth]{online2.png}} 
+    \subfigure[Online learning during test video 3.]{\includegraphics[width=0.8\textwidth]{online3.png}}
+    \newpage
+    \caption{Real-time absolute difference (MAE) for sample test videos. For all samples, OVAL with online learning outperforms the pre-trained model as each video progresses.}
+    \label{fig:online_compquant}
+\end{figure}
+\begin{table}[h!]
+
+\centering
+    \begin{tabular}{ | c | c | c | c | c |}
+    \hline
+    \textbf{Hyperparameter} &  \textbf{Value}  \\ \hline
+    Learning Rate & 2.5e-3 \\ \hline
+    Frame Batch Size & 5 \\ \hline
+    Input Buffer Size & 20 \\ \hline
+    Loss Function & BCE \\ \hline
+    Optimizer & Adam \\ \hline
+    \hline
+    \end{tabular}
+    \label{arch_table}
+    \caption{Training parameters used during the online learning phase.}
+\end{table}
+
+\subsection{Comparison to Baseline Models}
+
+Our quantitative results show strong performance in comparison to the baseline models. Using the entire test set, the average \textit{mean absolute error (MAE)} and compression ratios of all models are shown in \textbf{Table 4}. MAE was used as a test similarity metric as we observed it to best reflect qualitative video caliber. While BCE loss was effective for training, videos that differed drastically in quality had only small differences in BCE loss. Therefore, the metric was not as illustrative for evaluation.
+
+\begin{table}[h!]
+\centering
+    \begin{tabular}{ | c | c | c | c | c |}
+    \hline
+    \textbf{Model} &  \textbf{Compression Ratio} & \textbf{Mean Absolute Error}  \\ \hline
+    OVAL (Offline only) & 23.3x & 0.0346 \\ \hline
+    k-MSB Baseline & 2x & 0.0285 \\ \hline
+    k-MSB Baseline & 4x & 0.1162 \\ \hline
+    Interpolation Baseline & 5x & 0.0268 \\ \hline
+    Interpolation Baseline & 20x &  0.0645 \\ \hline
+    \hline
+    \end{tabular}
+    \label{arch_table}
+    \caption{Average mean absolute error on the entire test set with OVAL compared to the baseline models. OVAL has almost half the MAE as the interpolation baseline at a slightly better compression ratio, and one-third the MAE as the k-MSB baseline at a 5x better compression ratio. }
+\end{table}
+
+
+\section{Qualitative Results}
+
+\subsection{Examples of Compressed Video}
+
+An example of a full transmitted test video is available \href{https://www.youtube.com/watch?v=T6mVyx84EIc}{here}. OVAL treated this video as a live feed and encoded/decoded video frames in real-time between a sender and receiver.
+
+\subsection{Online Learning}
+
+The quantitative improvement in loss during online learning is reflected in real-time improvements to video quality. \textbf{Figure \ref{fig:online_comp}} shows in-video improvements with three test videos. As a stable video feed holds (such as an individual speaker) the quality of the decoded frames improves. 
+
+\begin{figure}
+    \centering
+    \subfigure[]{\includegraphics[width=0.48\textwidth]{baditalpm.png}} \hfill
+    \subfigure[]{\includegraphics[width=0.48\textwidth]{gooditalpm.png}} 
+    \subfigure[]{\includegraphics[width=0.48\textwidth]{badjobint.png}}\hfill
+    \subfigure[]{\includegraphics[width=0.46\textwidth]{goodjobint.png}}
+    \subfigure[]{\includegraphics[width=0.47\textwidth]{badsoccer.png}}\hfill
+    \subfigure[]{\includegraphics[width=0.48\textwidth]{goodsoccer.png}}
+    \caption{Improvements in video quality during online learning at 23x compression with our test set. Frames on the left are from early in the video, whereas frames on the right are from later in the video. Improvements are particularly noticeable with respect to color saturation and blur.}
+    \label{fig:online_comp}
+\end{figure}
+
+\subsection{Comparison to Baseline Models}
+
+When used to compress the same live video feed, OVAL produces clearer results for the receiver. \textbf{Figure \ref{comp_baselines}} shows the qualitative differences between OVAL and both baselines when applied to the same test set videos. 
+
+\begin{figure}
+    \centering
+    \subfigure[OVAL with online learning at 23.3x]{\includegraphics[width=0.48\textwidth]{online_1.png}} \hfill
+    \subfigure[OVAL without online learning at 23.3x]{\includegraphics[width=0.48\textwidth]{offlinemeg.png}} 
+    \subfigure[ k-MSB at 4x]{\includegraphics[width=0.48\textwidth]{cutbit4xmegan.png}}\hfill
+    \subfigure[interpolation at 5x]{\includegraphics[width=0.48\textwidth]{resize5xm.png}}
+    \subfigure[interpolation at 20x]{\includegraphics[width=0.48\textwidth]{resize20xm.png}}
+    \caption{Frames from the same compressed video using OVAL compared to baseline models. }
+    \label{comp_baselines}
+\end{figure}
+
+
+\subsection{Input Dependence for Online Learning}
+
+While \textbf{Figure \ref{fig:online_compquant}} demonstrates strong online learning, there are factors in the input video that influence its performance. Online learning fits specific features in the real-time video feed, so it is logical that stable videos (for example, a single speaker with a static background) can be compressed better than more dynamic videos. Upon testing, we observe this behaviour by comparing two static/dynamic videos in \textbf{Figure \ref{static_dynamic}}. 
+
+\begin{figure}
+    \centering
+    \subfigure[Online learning for a video with a single seated speaker.]{\includegraphics[width=\textwidth]{online1.png}} 
+    \subfigure[Online learning for a video with multiple speakers and camera angles.]{\includegraphics[width=\textwidth]{dynamic.png}}
+    \caption{Online learning performance for a mainly static video  compared to a rapidly changing video. For the static video, online learning is able to achieve a 75\% decrease in loss, whereas for the dynamic video online learning only achieves a 20\% decrease in loss.}
+    \label{static_dynamic}
+\end{figure}
+
+Since the original application of OVAL was for video conferencing, which normally has unchanging video feeds, its limitation for dynamic video does not affect its goal. 
+
+\section{Evaluation on New Data}
+
+\subsection{Test Video Dataset}
+
+Upon creating our dataset (Section 4) we allocated 10 videos for a test set which was only accessed after hyperparameter tuning. These samples were assigned randomly from the collected YouTube videos, all of which focused on a small number of individual speakers. These test samples were used to:
+\begin{enumerate}
+    \item Verify the pre-trained model's generalization 
+    \item Evaluate online learning performance
+    \item Test real-time encoding ability in a live video setting
+\end{enumerate}
+
+Results shown in Sections 6 and 7 clearly verify strong generalization, robust online performance and real-time concurrent encoding with learning. 
+
+\subsection{Use in a Video Conference}
+
+The final use of OVAL is for video conferencing. Therefore, our final tests on the model were on live video from a group member's webcam. As video data was generated, frames were encoded, transmitted and decoded by a ``receiver'' on the same device. The resulting output video is shown \href{https://www.youtube.com/watch?v=ciW3TS9POr8}{here}.
+
+\textbf{Figure \ref{webcam_mae}} shows the improvement in video quality due to online learning throughout the video and \textbf{Figure \ref{webcam_update}} shows proper behaviour from the dynamic update policy.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=16cm]{webcam_mae.png}
+    \caption{Real-time absolute error between decoded frames and the actual frames at 23.3x compression during the webcam test.}
+    \label{webcam_mae}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=16cm]{webcam_rme.png}
+    \caption{Relative pixelwise difference between the sender's training encoder and live encoder during the webcam test. A low error is preserved due to dynamic updates between the sender and receiver.}
+    \label{webcam_update}
+\end{figure}
+
+These results confirm the practical viability of OVAL. Firstly, the receiver frame rate matches the sender frame rate, resulting in smooth real-time video. To ensure online training stays up-to-date with encoding, OVAL downsamples training frames (Section 4.2) exhibited in \textbf{Figure \ref{downsample}} from our live test.
+
+Secondly, the live test verifies OVAL's compatibility with a camera input. Video files were stored as \texttt{.mp4} files and converted to PyTorch tensors for both training and encoding (\textbf{Figure \ref{data}}). The successful live test shows that camera input can efficiently be loaded to tensors as well, and does not slow down OVAL's encoding or training.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=16cm]{downsample.png}
+    \caption{Frame downsampling from the FIFO buffer (\textbf{Figure \ref{fig:bigarch}}) during the live test. The downsampling rate is the ratio of total video frames to frames used for training. For example, a downsampling rate of 2 means that only half the input frames are used for training in order to keep up with the input frame rate. }
+    \label{downsample}
+\end{figure}
+
+\section{Discussion of Results}
+
+\subsection{Offline Learning (Pre-Training)}
+
+Continuing the analysis from Section 6.1, there are key insights from the pre-training process. 
+
+Firstly, although we trained the model using a BCE loss function, we observe in \textbf{Figures \ref{fig:mse}} and \textbf{\ref{fig:mae}} that both MSE and MAE loss also decrease throughout the training process. These results provide strong evidence that the model learned how to encode features of the input video rather than simply gaming the loss function. Additionally, the results verify the appropriateness of the BCE loss function for training. While BCE training loss only decreased by 7\% from epoch 1 to 25 (\textbf{Figure \ref{fig:train}}), the MSE and MAE loss decreased by 75\% and 50\% respectively. Thus, the BCE loss properly drove the model to find robust encodings of video data.
+
+Secondly, we notice in \textbf{Figure \ref{fig:train}} that the validation loss is consistently lower than the training loss. While normally unusual, this observation can be explained by natural differences in the training and validation datasets. As videos were randomly assigned to each set with only 10 videos in validation, it makes sense that the validation videos could have been more static and therefore easier to encode (see Section 7.4). Thus, the actual loss value for each set is unimportant; what matters is the relative improvement during training.
+
+Lastly, we note that at epoch 25 the training and validation loss were still slightly decreasing. Training for 25 epochs took over 18 hours on a CUDA-compatible GPU. Therefore, we did not see any importance in training for more epochs to attain a marginal increase in performance. 
+
+\subsection{Online Learning}
+
+The primary goal of OVAL was to use online learning for effective video compression. Results show that online learning was highly effective in fitting individual video streams (see Section 6.2).
+
+Largely, OVAL performs as expected when used in an online context. Real-time error is reduced throughout the video and changes in the video are adapted to quickly. We observe in \textbf{Figure \ref{static_dynamic} (b)} that even when a rapidly changing video is encoded, online learning can continuously optimize the encodings. After loss spikes, online loss slowly decreases whereas the pre-trained model remains flat. Examples of this constant learning behaviour can be seen between frames 400-1600 in \textbf{Figure \ref{static_dynamic} (b)}. 
+
+An interesting observation is the speed at which online learning fits a new video feed. For example, in \textbf{Figure \ref{static_dynamic} (a)} the online loss stabilizes after 1,000 frames are transmitted. In comparison, when pre-training the offline model, it took around 40,000 frames before loss stabilized (\textbf{Figure \ref{fig:mae}}). This is likely indicative of strong pre-training which learned a wide range of common features, such as faces and backgrounds. Thus, when a new video feed is fit online, the relevant features are already known and just need to be identified for encoding. 
+
+\subsection{Dynamic Update Policy}
+
+The sender/receiver architecture of OVAL uses a dynamic update policy where new decoder parameters are transferred when the live error of transmitted frames reaches a threshold value. \textbf{Figure \ref{dynupdate}} demonstrates that this update policy works as intended. Furthermore, we see that we can maintain an arbitrarily small relative error between the sender and receiver by updating decoder parameters more frequently. In practice, there is a trade-off between relative error and performance since sending decoder parameters incurs a computational cost on the sender, receiver and connecting network. 
+
+\begin{figure}
+    \centering
+    \subfigure[]{\includegraphics[width=\textwidth]{param1.png}} 
+    \subfigure[]{\includegraphics[width=\textwidth]{param2.png}}
+    \caption{OVAL's dynamic update policy applied to two test videos with online learning. The relative mean error (pixelwise difference) between the sender's training model (see \textbf{Figure \ref{fig:bigarch}}) and the sender's live model is plotted for both videos \textit{with} and \textit{without} periodic updates. Clearly, the relative error increases without periodic updates, since the sender's training model is improving but is not being used. With the update policy, at specified relative errors the live model is updated to incorporate the improvement from online training. }
+    \label{dynupdate}
+\end{figure}
+
+
+\subsection{LSTM Networks and Transfer Learning}
+
+Since LSTM networks were commonly used in past papers on video compression, we initially attempted to incorporate an LSTM layer into the OVAL architecture. However, the LSTM layer slowed training down too significantly to be used in practice. Since the concurrent online training needed to stay up-to-date with real-time video, the LSTM was not feasible. We also tried a ConvLSTM, a special RNN that uses convolutions for both the input-state and state-state transitions. Similarly, this architecture was too slow to be used in OVAL.
+
+We also considered using transfer learning with a simple, pre-trained CNN model such as AlexNet. The pre-trained model would act as part of the encoder. This extension was not explored due to time constraints.
+
+\section{Ethical Considerations}
+
+An ethical issue in the implementation of OVAL is data privacy. During a video conference, a malicious agent could intercept the OVAL encodings as well as their associated decoder parameters. Then, they could access private video feeds. When using OVAL in practice, the decoder parameters \textit{must} be encrypted during transmission. Additionally, the compressed data should be encrypted.
+
+Since our model's primary use is video conferencing, it must not be biased towards specific users based on their race or gender. For example, a biased model may create stronger encodings for male facial features which result in better video quality. To ensure our model was unbiased, it was trained on a diverse range of speakers (\textbf{Figure \ref{fig:eqty}}). In \textbf{Figure \ref{fig:online_comp}}, we see that online learning improves skin tone accuracy across different races and improves facial feature definition across different genders. These results verify our fairness goal.
+
+\section{GitHub Repository}
+\href{https://github.com/isidorjkaplan/OVAL}{OVAL GitHub repository.}
+
+\pagebreak
+
+\section*{References}
+
+[1]  A. Golinski, R. Pourreza, Y. Yang, S. Guillaume and S. Taco. ``Feedback Recurrent Autoencoder for Video Compression," Qualcomm AI Research, 2020. 
+
+[2] Y. Zhang, X. Liang, D. Zhang, M. Tan, and E. P. Xing. ``Unsupervised object-level video summarization with online motion auto-encoder,” Pattern Recognition Letters, vol. 130, pp. 376–385, 2020. 
+
+[3] P. Vincent , H. Larochelle , Y. Bengio , P.A. Manzagol. ``Extracting and composing robust features with denoising autoencoders,” ICML '08: Proceedings of the 25th international conference on Machine learning, pp. 1096–1103, 2008. 
+
+[4] A. Creswell, K. Arulkumaran, and A.A. Bharath. ``On denoising autoencoders trained to minimise binary cross-entropy,”, submitted to Pattern Recognition Letters, 2017.
+
+\end{document}
+
